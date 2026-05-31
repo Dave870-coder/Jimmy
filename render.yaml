@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: jimmy-ai-bot
+    env: python
+    region: oregon
+    plan: free
+    pythonVersion: 3.12
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_bot.py
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DEBUG
+        value: "False"
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:///./data/bot.db
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: SECRET_KEY
+        sync: false

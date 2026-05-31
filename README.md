@@ -2,17 +2,17 @@
 
 A production-ready AI Bot Platform powered by **Google AI Studio (Gemini)**, integrated with WhatsApp and Telegram, featuring autonomous agents, memory systems, and intelligent task automation.
 
-## 🚀 Deploy Now
+## 🚀 Deploy Now (FREE!)
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new?template=https://github.com/Dave870-coder/Jimmy)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Dave870-coder/Jimmy)
 
-Click the button above to deploy your bot to Railway in 1 minute! The bot will run 24/7 online automatically.
+Click the button above to deploy your bot to **Render for FREE**! The bot will run 24/7 online automatically at zero cost.
 
 **After clicking Deploy:**
-1. Authorize with GitHub
-2. Add your API keys (GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, etc.)
-3. Click Deploy
-4. Bot is LIVE! 🎉
+1. Authorize with GitHub  
+2. Add your API keys (GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, SECRET_KEY)
+3. Click "Create Web Service"
+4. Bot is LIVE! 🎉 (No credit card needed!)
 
 ## 🚀 Features
 
