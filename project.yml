@@ -1,0 +1,90 @@
+name: ai-bot-platform
+version: 1.0.0
+
+# Dashboard configuration
+dashboard:
+  title: AI Bot Platform Admin
+  description: Manage users, conversations, and bot settings
+  
+# API configuration  
+api:
+  title: AI Bot Platform API
+  description: REST API for AI Bot Platform
+  version: 1.0.0
+  docs_url: /docs
+  redoc_url: /redoc
+  openapi_url: /openapi.json
+
+# Database configuration
+database:
+  engine: postgresql
+  version: "13+"
+  features:
+    - async_support: true
+    - orm: sqlalchemy
+    - migrations: alembic
+
+# Cache configuration
+cache:
+  engine: redis
+  version: "6+"
+  ttl: 3600
+
+# Features
+features:
+  authentication: true
+  authorization: true
+  rate_limiting: true
+  logging: true
+  monitoring: true
+  api_docs: true
+  vector_search: true
+  document_upload: true
+  workflow_automation: true
+  memory_system: true
+
+# Integrations
+integrations:
+  telegram:
+    enabled: true
+    polling: true
+    webhook: true
+  whatsapp:
+    enabled: true
+    webhook: true
+  openai:
+    enabled: true
+    model: gpt-4-turbo-preview
+  google_ai:
+    enabled: true
+    model: gemini-pro
+  ollama:
+    enabled: true
+    local: true
+
+# Deployment options
+deployment:
+  docker: true
+  kubernetes: true
+  heroku: true
+  railway: true
+  aws: true
+  gcp: true
+  azure: true
+
+# Testing
+testing:
+  framework: pytest
+  coverage_target: 90
+  unit_tests: true
+  integration_tests: true
+  e2e_tests: true
+
+# Documentation
+documentation:
+  readme: true
+  api_reference: true
+  installation_guide: true
+  deployment_guide: true
+  architecture_guide: true
+  contributing_guide: true

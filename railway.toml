@@ -1,0 +1,15 @@
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
+
+[deploy]
+healthchecks.enabled = true
+healthchecks.cmd = "curl http://localhost:8000/health || exit 1"
+healthchecks.interval = 10
+healthchecks.timeout = 5
+healthchecks.start_period = 30
+restartPolicyMaxRetries = 5
+
+[env]
+PORT = "8000"
+RAILWAY_ENVIRONMENT_NAME = "production"
