@@ -4,7 +4,7 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: python -m pip install --no-cache-dir .
+    buildCommand: pip install --no-cache-dir -e .
     startCommand: python run_bot.py
     healthCheckPath: /health
     disk:
