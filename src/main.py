@@ -1,6 +1,7 @@
 """FastAPI application with incremental feature restoration."""
 
 import logging
+import os
 from datetime import datetime
 from contextlib import asynccontextmanager
 
@@ -38,7 +39,7 @@ try:
     except Exception as e:
         logger.warning(f"⚠️ Database init failed: {e}")
     
-    # Define lifespan for startup/shutdown
+    # Define lifespan for startup/shutdown (includes all layers)
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Startup
@@ -55,6 +56,33 @@ try:
                     logger.info("✅ Database tables created/verified")
                 except Exception as e:
                     logger.warning(f"⚠️ Database table creation failed: {e}")
+            
+            # Initialize AI Orchestrator (optional, graceful degradation)
+            try:
+                from src.ai.orchestrator import get_agent_orchestrator
+                orchestrator = get_agent_orchestrator()
+                logger.info("✅ AI Orchestrator initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ AI Orchestrator initialization failed: {e}")
+            
+            # Configure Telegram webhook on hosted environments (optional)
+            try:
+                if init_status["config"] and hasattr(settings, 'telegram_bot_token') and settings.telegram_bot_token:
+                    public_base_url = getattr(settings, 'public_base_url', None) or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+                    if public_base_url:
+                        try:
+                            from src.bot.telegram.handler import get_telegram_bot
+                            telegram_bot = await get_telegram_bot()
+                            if telegram_bot:
+                                webhook_url = f"{public_base_url}/api/v1/telegram/webhook"
+                                await telegram_bot.set_webhook(webhook_url, getattr(settings, 'telegram_webhook_secret', ''))
+                                logger.info(f"✅ Telegram webhook configured: {webhook_url}")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to configure Telegram webhook: {e}")
+                    else:
+                        logger.info("ℹ️  No public base URL - Telegram webhook will not be configured")
+            except Exception as e:
+                logger.warning(f"⚠️ Telegram setup failed: {e}")
             
             logger.info("🎉 APPLICATION READY")
             logger.info("=" * 60)
@@ -194,21 +222,24 @@ try:
         except Exception as e:
             logger.warning(f"⚠️ {route_name.capitalize()} route failed: {e}")
     
-    # Layer 7: Initialize AI Orchestrator (optional, graceful degradation)
-    ai_orchestrator = None
-    try:
-        from src.ai.orchestrator import get_agent_orchestrator
-        ai_orchestrator = get_agent_orchestrator()
-        logger.info("✅ AI Orchestrator initialized")
-    except Exception as e:
-        logger.warning(f"⚠️ AI Orchestrator initialization failed: {e}")
-        logger.info("ℹ️  Bot will run without AI features")
+    # All routes loaded
+    logger.info("=" * 60)
+    logger.info("✅ All API routes configured")
+    logger.info("=" * 60)
     
     # Layer 8: Enhanced health endpoint with AI status
     @app.get("/health/detailed")
     async def health_detailed():
         """Detailed health endpoint with orchestrator status."""
-        ai_status = "initialized" if ai_orchestrator else "unavailable"
+        # Try to get AI status from startup
+        ai_status = "checking"
+        try:
+            from src.ai.orchestrator import get_agent_orchestrator
+            orchestrator = get_agent_orchestrator()
+            ai_status = "initialized"
+        except Exception:
+            ai_status = "unavailable"
+        
         return {
             "status": "healthy",
             "database": "ready" if db_ready else "not_initialized",
@@ -216,7 +247,7 @@ try:
             "timestamp": datetime.utcnow().isoformat(),
         }
     
-    logger.info("✅ App created successfully")
+    logger.info("✅ App created successfully with all layers")
 
 except Exception as e:
     logger.error(f"❌ Failed to create app: {e}", exc_info=True)
