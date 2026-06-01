@@ -2,6 +2,7 @@ services:
   - type: web
     name: jimmy-ai-bot
     env: python
+    pythonVersion: 3.12
     region: oregon
     plan: free
     buildCommand: pip install --no-cache-dir -e .
