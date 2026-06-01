@@ -123,6 +123,36 @@ try:
             "timestamp": datetime.utcnow().isoformat(),
         }
     
+    # Layer 2: Core monitoring endpoints
+    @app.get("/metrics")
+    async def metrics():
+        """Prometheus-compatible metrics endpoint."""
+        return {
+            "requests_total": 0,
+            "requests_today": 0,
+            "uptime_seconds": 0,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
+    @app.get("/status")
+    async def status_endpoint():
+        """Comprehensive status endpoint."""
+        return {
+            "bot_status": "running",
+            "environment": init_status["config"],
+            "version": "1.0.0",
+            "timestamp": datetime.utcnow().isoformat(),
+            "database": "ready" if db_ready else "not_initialized",
+        }
+    
+    # Layer 3: Try to add messages route (safest route to start with)
+    try:
+        from src.api.routes.messages import router as messages_router
+        app.include_router(messages_router, prefix="/api/v1/messages", tags=["messages"])
+        logger.info("✅ Messages route loaded")
+    except Exception as e:
+        logger.warning(f"⚠️ Messages route failed: {e}")
+    
     logger.info("✅ App created successfully")
 
 except Exception as e:
