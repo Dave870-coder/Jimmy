@@ -39,8 +39,49 @@ class TelegramBot:
             raise ValueError("TELEGRAM_BOT_TOKEN not set in .env")
         
         self.app = Application.builder().token(settings.telegram_bot_token).build()
+        self._initialized = False
         self._setup_handlers()
         logger.info("✅ Telegram bot initialized successfully")
+
+    async def initialize(self):
+        """Initialize the underlying Telegram application once."""
+        if self._initialized:
+            return
+
+        await self.app.initialize()
+        self._initialized = True
+
+    async def set_webhook(self, webhook_url: str, secret_token: str = ""):
+        """Register the bot webhook for hosted deployments."""
+        await self.initialize()
+
+        webhook_kwargs = {}
+        if secret_token:
+            webhook_kwargs["secret_token"] = secret_token
+
+        await self.app.bot.set_webhook(webhook_url, **webhook_kwargs)
+        logger.info(f"✅ Telegram webhook configured: {webhook_url}")
+
+    async def clear_webhook(self):
+        """Remove the Telegram webhook when shutting down or switching modes."""
+        await self.initialize()
+        await self.app.bot.delete_webhook(drop_pending_updates=False)
+
+    async def handle_webhook_update(self, update_data: dict) -> bool:
+        """Process a webhook update through the Telegram application."""
+        try:
+            await self.initialize()
+
+            update = Update.de_json(update_data, self.app.bot)
+            if update is None:
+                logger.warning("Received empty Telegram webhook payload")
+                return False
+
+            await self.app.process_update(update)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Error handling Telegram webhook update: {e}")
+            return False
 
     def _setup_handlers(self):
         """Setup command and message handlers."""
@@ -157,6 +198,7 @@ I'm powered by Google AI and ready to assist you.
         logger.info("Press Ctrl+C to stop")
         
         try:
+            await self.initialize()
             await self.app.run_polling(
                 allowed_updates=["message", "edited_channel_post", "callback_query"]
             )

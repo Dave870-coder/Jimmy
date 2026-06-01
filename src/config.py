@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_webhook_url: str = ""
+    telegram_webhook_path: str = "/api/v1/telegram/webhook"
+    telegram_webhook_secret: str = ""
+
+    # Public deployment URL
+    public_base_url: str = ""
 
     # WhatsApp
     whatsapp_business_account_id: str = ""

@@ -1,59 +1,65 @@
 #!/bin/bash
 # Quick setup script for GitHub deployment
 
+set -e
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
+
 echo "🚀 AI Bot Platform - GitHub Setup Script"
 echo "=========================================="
 
-# Check prerequisites
 echo ""
 echo "📋 Checking prerequisites..."
 echo ""
 
-# Check Python
-if ! command -v python3 &> /dev/null; then
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD=python3
+elif command -v python &> /dev/null; then
+    PYTHON_CMD=python
+else
     echo "❌ Python 3 not found. Install Python 3.12 or higher."
     exit 1
 fi
-PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
-echo "✅ Python $PYTHON_VERSION found"
 
-# Check Git
 if ! command -v git &> /dev/null; then
     echo "❌ Git not found. Install git."
     exit 1
 fi
+
+echo "✅ Python $($PYTHON_CMD --version | cut -d' ' -f2) found"
 echo "✅ Git found"
 
-# Create directories
 echo ""
 echo "📁 Creating data directories..."
-mkdir -p data/chroma
-mkdir -p logs
+mkdir -p data/chroma logs
 echo "✅ Directories created"
 
-# Create virtual environment
 echo ""
 echo "🔧 Setting up virtual environment..."
-if [ -d "venv" ]; then
-    echo "ℹ️  venv already exists, skipping..."
-else
-    python3 -m venv venv
+if [ ! -d ".venv" ]; then
+    "$PYTHON_CMD" -m venv .venv
     echo "✅ Virtual environment created"
+else
+    echo "ℹ️  .venv already exists, skipping..."
 fi
 
-# Activate venv
-echo ""
-echo "📦 Activating virtual environment..."
-source venv/bin/activate || . venv\Scripts\activate
+VENV_PYTHON=".venv/bin/python"
+if [ ! -x "$VENV_PYTHON" ]; then
+    VENV_PYTHON=".venv/Scripts/python.exe"
+fi
 
-# Install dependencies
+if [ ! -x "$VENV_PYTHON" ] && [ ! -f "$VENV_PYTHON" ]; then
+    echo "❌ Could not locate virtual environment Python"
+    exit 1
+fi
+
 echo ""
 echo "📥 Installing dependencies..."
-pip install --upgrade pip
-pip install -e . 2>/dev/null || pip install -r requirements.txt 2>/dev/null || echo "⚠️  Dependencies partially installed"
+"$VENV_PYTHON" -m pip install --upgrade pip
+"$VENV_PYTHON" -m pip install -e .
 echo "✅ Dependencies installed"
 
-# Setup environment file
 echo ""
 echo "🔐 Setting up environment..."
 if [ ! -f ".env" ]; then
@@ -67,14 +73,12 @@ else
     echo "✅ .env already exists"
 fi
 
-# Create data directories for SQLite
 echo ""
-echo "💾 Creating database directory..."
+echo "💾 Preparing database directory..."
 mkdir -p data
 touch data/bot.db 2>/dev/null || true
 echo "✅ Database directory ready"
 
-# Summary
 echo ""
 echo "=============================================="
 echo "✅ Setup Complete!"
@@ -85,21 +89,18 @@ echo ""
 echo "1. Edit .env file with your API keys:"
 echo "   nano .env"
 echo ""
-echo "2. Test locally:"
+echo "2. Start the bot:"
+echo "   $VENV_PYTHON start_bot.py"
+echo ""
+echo "3. Test locally:"
 echo "   python local_test.py"
 echo ""
-echo "3. Start development server:"
-echo "   uvicorn src.main:app --reload"
-echo ""
-echo "4. In another terminal, start Telegram bot:"
-echo "   python run_telegram_bot.py"
-echo ""
-echo "5. Push to GitHub:"
+echo "4. Push to GitHub:"
 echo "   git add ."
 echo "   git commit -m 'Initial setup'"
 echo "   git push origin main"
 echo ""
-echo "6. Deploy to Railway, Heroku, or AWS:"
-echo "   See GITHUB_HOSTING_GUIDE.md"
+echo "5. Deploy to Render:"
+echo "   Render auto-deploys after GitHub push"
 echo ""
 echo "🚀 Your AI Bot is ready!"

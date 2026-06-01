@@ -1,5 +1,6 @@
 """Database configuration and utilities."""
 
+from pathlib import Path
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -14,6 +15,11 @@ settings = get_settings()
 
 # Handle both SQLite and PostgreSQL
 database_url = settings.database_url
+
+if database_url.startswith("sqlite:///"):
+    sqlite_path = Path(database_url.replace("sqlite:///", "", 1))
+    if sqlite_path.as_posix() != ":memory:":
+        sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
 if database_url.startswith("sqlite://"):
     # SQLite with aiosqlite for async support

@@ -3,6 +3,9 @@
 
 set -e
 
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
+
 echo "🚀 AI Bot Platform - Quick Start"
 echo "================================="
 echo ""
@@ -21,47 +24,36 @@ if [ ! -f .env ]; then
     exit 0
 fi
 
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed"
-    echo "   Install Docker from: https://docker.com"
+mkdir -p data/chroma logs
+
+if [ ! -d .venv ]; then
+    if command -v python3 &> /dev/null; then
+        python3 -m venv .venv
+    else
+        python -m venv .venv
+    fi
+fi
+
+VENV_PYTHON=".venv/bin/python"
+if [ ! -x "$VENV_PYTHON" ]; then
+    VENV_PYTHON=".venv/Scripts/python.exe"
+fi
+
+if [ ! -x "$VENV_PYTHON" ] && [ ! -f "$VENV_PYTHON" ]; then
+    echo "❌ Python virtual environment could not be created"
     exit 1
 fi
 
-# Check if docker-compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ docker-compose is not installed"
-    echo "   Install Docker Desktop which includes docker-compose"
-    exit 1
-fi
-
-echo "✅ Docker is installed"
+echo "✅ Python environment ready"
 echo ""
 
-# Start services
-echo "🐳 Starting Docker services..."
-docker-compose up -d
+echo "📦 Installing dependencies..."
+"$VENV_PYTHON" -m pip install --upgrade pip
+"$VENV_PYTHON" -m pip install -e .
 
-# Wait for services to be ready
-echo "⏳ Waiting for services to start (30 seconds)..."
-sleep 30
-
-# Check if services are healthy
 echo ""
-echo "🏥 Checking service health..."
-docker-compose ps
-
-# Test API
-echo ""
-echo "🧪 Testing API health..."
-response=$(curl -s http://localhost:8000/health || echo '{"status": "error"}')
-echo "API Response: $response"
-
-if echo "$response" | grep -q "healthy"; then
-    echo "✅ API is healthy!"
-else
-    echo "⚠️  API might still be starting..."
-fi
+echo "🚀 Starting bot..."
+"$VENV_PYTHON" start_bot.py
 
 echo ""
 echo "✅ Setup complete!"
@@ -69,8 +61,5 @@ echo ""
 echo "🎯 Next steps:"
 echo "1. Open Telegram and find your bot"
 echo "2. Send /start to test the bot"
-echo "3. View logs: docker-compose logs -f api"
-echo "4. API docs: http://localhost:8000/docs"
-echo ""
-echo "💡 To stop services: docker-compose down"
+echo "3. API docs: http://localhost:8000/docs"
 echo ""

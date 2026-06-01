@@ -2,10 +2,12 @@
 
 import logging
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware.logging import LoggingMiddleware, RateLimitMiddleware
@@ -72,6 +74,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Failed to initialize orchestrator: {e}")
         logger.warning("Continuing without orchestrator - some features may not work")
+
+    # Configure Telegram webhook on hosted environments
+    try:
+        public_base_url = settings.public_base_url or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+        if settings.telegram_bot_token and public_base_url:
+            from src.bot.telegram.handler import get_telegram_bot
+
+            telegram_bot = await get_telegram_bot()
+            if telegram_bot:
+                webhook_url = f"{public_base_url}{settings.telegram_webhook_path}"
+                await telegram_bot.set_webhook(webhook_url, settings.telegram_webhook_secret)
+        elif settings.telegram_bot_token:
+            logger.warning(
+                "⚠️ Telegram bot token is configured, but no public base URL was found. "
+                "Set PUBLIC_BASE_URL or deploy on Render so the webhook can be registered."
+            )
+    except Exception as e:
+        logger.error(f"❌ Failed to configure Telegram webhook: {e}")
     
     # Define health check function
     async def check_health():
@@ -198,20 +218,26 @@ async def readiness():
                 "timestamp": datetime.utcnow().isoformat(),
                 "orchestrator": "initialized",
             }
-        else:
-            return {
+
+        return JSONResponse(
+            status_code=503,
+            content={
                 "ready": False,
                 "timestamp": datetime.utcnow().isoformat(),
                 "reason": "database_not_ready",
-            }, 503
+            },
+        )
     
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
-        return {
-            "ready": False,
-            "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
-        }, 503
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ready": False,
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e),
+            },
+        )
 
 
 @app.get("/metrics", tags=["monitoring"])
@@ -238,10 +264,13 @@ async def metrics():
     
     except Exception as e:
         logger.error(f"Metrics collection failed: {e}")
-        return {
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat(),
-        }, 500
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        )
 
 
 @app.get("/status", tags=["monitoring"])
@@ -268,11 +297,14 @@ async def status_endpoint():
     
     except Exception as e:
         logger.error(f"Status check failed: {e}")
-        return {
-            "bot_status": "error",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat(),
-        }, 500
+        return JSONResponse(
+            status_code=500,
+            content={
+                "bot_status": "error",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+            },
+        )
 
 
 @app.get("/docs", tags=["documentation"])
@@ -288,15 +320,8 @@ if __name__ == "__main__":
         "src.main:app",
         host=settings.host,
         port=settings.port,
-        workers=settings.api_workers if settings.app_env == "production" else 1,
+        workers=1,
         reload=not (settings.app_env == "production"),
         log_level=settings.log_level.lower(),
         access_log=True,
-    )
-    
-    uvicorn.run(
-        app,
-        host=settings.api_host,
-        port=settings.api_port,
-        workers=settings.api_workers,
     )

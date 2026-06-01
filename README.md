@@ -14,10 +14,22 @@ Click the button above to deploy your bot to **Render for FREE**! The bot will r
 3. Click "Create Web Service"
 4. Bot is LIVE! 🎉 (No credit card needed!)
 
+## ✅ Production Startup Checklist
+
+Use this quick check before you rely on a new deployment:
+
+1. Confirm `/health` is healthy on the live URL.
+2. Confirm `/ready` succeeds after startup and migrations.
+3. Confirm Telegram `/start` replies from the deployed bot.
+4. Confirm WhatsApp QR start returns both QR and barcode payloads.
+5. Confirm secrets are set in Render and not stored in Git.
+6. Confirm the SQLite path is mounted to persistent storage on Render.
+
 ## 🚀 Features
 
 - **🤖 Google AI Integration**: Powered by Gemini 2.0 Flash for fast, intelligent responses
 - **Multi-Channel Communication**: WhatsApp and Telegram bot support
+- **WhatsApp Connection Sharing**: QR code plus barcode payload for external connection flows
 - **Autonomous Agents**: Smart agent framework that routes queries intelligently
   - Chat Agent - General conversation
   - Research Agent - Knowledge base search
@@ -305,6 +317,15 @@ railway up
 2. Create web service
 3. Add environment variables
 4. Deploy
+
+### WhatsApp Connection Flow
+
+The WhatsApp QR endpoints can be used to start a live connection session and retrieve both QR and barcode payloads for external access:
+
+1. Call `POST /api/v1/whatsapp-qr/start-connection`
+2. Open the returned QR or barcode data in a viewer
+3. Scan the QR with WhatsApp Linked Devices
+4. Use the status endpoint to confirm the session is authenticated
 
 #### AWS EC2
 See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.

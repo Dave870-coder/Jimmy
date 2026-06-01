@@ -6,9 +6,8 @@ Starts the FastAPI server without requiring Docker, PostgreSQL, or complex setup
 
 import os
 import sys
-import asyncio
-import subprocess
 import logging
+from importlib.util import find_spec
 from pathlib import Path
 
 # Add project root to path
@@ -21,21 +20,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def check_dependencies():
+def check_dependencies():
     """Check if all required dependencies are installed."""
     required = [
         "fastapi",
         "uvicorn",
         "sqlalchemy",
         "pydantic",
-        "python-telegram-bot",
+        "telegram",
         "google.generativeai",
     ]
     
     missing = []
     for package in required:
         try:
-            __import__(package.replace("-", "_"))
+            if find_spec(package) is None:
+                raise ImportError(package)
         except ImportError:
             missing.append(package)
     
@@ -48,7 +48,7 @@ async def check_dependencies():
     return True
 
 
-async def setup_environment():
+def setup_environment():
     """Setup environment variables."""
     env_file = project_root / ".env"
     
@@ -73,7 +73,7 @@ async def setup_environment():
     return True
 
 
-async def check_google_api():
+def check_google_api():
     """Check if Google API key is configured."""
     from src.config import get_settings
     settings = get_settings()
@@ -86,7 +86,7 @@ async def check_google_api():
         logger.info("✅ Google API key configured")
 
 
-async def check_telegram():
+def check_telegram():
     """Check if Telegram bot is configured."""
     from src.config import get_settings
     settings = get_settings()
@@ -99,7 +99,7 @@ async def check_telegram():
         logger.info("✅ Telegram bot token configured")
 
 
-async def print_startup_info():
+def print_startup_info():
     """Print startup information."""
     settings = get_settings()
     
@@ -119,58 +119,49 @@ async def print_startup_info():
     logger.info("\n" + "="*60 + "\n")
 
 
-async def start_api_server():
+def create_runtime_directories():
+    """Create directories needed for local and production startup."""
+    for directory in [project_root / "data", project_root / "data" / "chroma", project_root / "logs"]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+def start_api_server():
     """Start the FastAPI server."""
     settings = get_settings()
     
-    try:
-        logger.info("Starting FastAPI server...")
-        
-        # Use subprocess to start uvicorn
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "src.main:app",
-                f"--host={settings.api_host}",
-                f"--port={settings.api_port}",
-                "--reload" if settings.debug else "",
-            ],
-            cwd=project_root,
-        )
-        
-        logger.info("✅ FastAPI server started!")
-        logger.info(f"\n🌐 API is running at http://localhost:{settings.api_port}")
-        logger.info(f"📚 API documentation at http://localhost:{settings.api_port}/docs\n")
-        
-        # Keep the process running
-        process.wait()
-        
-    except KeyboardInterrupt:
-        logger.info("\n\n👋 Shutting down...")
-        process.terminate()
-        process.wait()
+    logger.info("Starting FastAPI server...")
+    import uvicorn
+
+    uvicorn.run(
+        "src.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=settings.debug,
+        log_level=settings.log_level.lower(),
+        access_log=True,
+    )
 
 
-async def main():
+def main():
     """Main entry point."""
     try:
         # Check dependencies
-        if not await check_dependencies():
+        if not check_dependencies():
             return 1
         
         # Setup environment
-        if not await setup_environment():
+        if not setup_environment():
             return 1
+
+        create_runtime_directories()
         
         # Check configuration
-        await print_startup_info()
-        await check_google_api()
-        await check_telegram()
+        print_startup_info()
+        check_google_api()
+        check_telegram()
         
         # Start API server
-        await start_api_server()
+        start_api_server()
         
         return 0
         
@@ -180,5 +171,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(main())
-    sys.exit(exit_code)
+    sys.exit(main())

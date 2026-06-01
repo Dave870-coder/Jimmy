@@ -2,6 +2,8 @@
 REM Quick start script for the AI Bot Platform (Windows)
 
 setlocal enabledelayedexpansion
+set "ROOT=%~dp0"
+pushd "%ROOT%"
 
 echo.
 echo 🚀 AI Bot Platform - Quick Start (Windows)
@@ -20,54 +22,42 @@ if not exist .env (
     echo.
     echo Then run this script again!
     pause
+    popd
     exit /b 0
 )
 
-REM Check if Docker is installed
-docker --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Docker is not installed
-    echo    Install Docker Desktop from: https://docker.com
+REM Create runtime directories
+if not exist data mkdir data
+if not exist data\chroma mkdir data\chroma
+if not exist logs mkdir logs
+
+REM Create virtual environment if needed
+if not exist .venv\Scripts\python.exe (
+    where py >nul 2>&1
+    if not errorlevel 1 (
+        py -3 -m venv .venv
+    ) else (
+        python -m venv .venv
+    )
+)
+
+set "PYTHON=.venv\Scripts\python.exe"
+if not exist "%PYTHON%" (
+    echo ❌ Python virtual environment could not be created
     pause
+    popd
     exit /b 1
 )
 
-echo ✅ Docker is installed
+echo ✅ Python environment ready
 echo.
 
-REM Start services
-echo 🐳 Starting Docker services...
-docker-compose up -d
-
-REM Wait for services
-echo ⏳ Waiting for services to start ^(30 seconds^)...
-timeout /t 30 /nobreak
-
-REM Check services
-echo.
-echo 🏥 Checking service health...
-docker-compose ps
-
-REM Test API
-echo.
-echo 🧪 Testing API health...
-for /f %%i in ('curl -s http://localhost:8000/health 2^>nul') do set response=%%i
-
-if "%response%" neq "" (
-    echo ✅ API is responding!
-) else (
-    echo ⚠️  API might still be starting...
-)
+echo 📦 Installing dependencies...
+"%PYTHON%" -m pip install --upgrade pip
+"%PYTHON%" -m pip install -e .
 
 echo.
-echo ✅ Setup complete!
-echo.
-echo 🎯 Next steps:
-echo 1. Open Telegram and find your bot
-echo 2. Send /start to test the bot
-echo 3. View logs: docker-compose logs -f api
-echo 4. API docs: http://localhost:8000/docs
-echo.
-echo 💡 To stop services: docker-compose down
-echo.
-pause
+echo 🚀 Starting bot...
+"%PYTHON%" start_bot.py
+
+popd

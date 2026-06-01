@@ -1,8 +1,19 @@
 """WhatsApp QR Code API Routes."""
 
+import base64
 import logging
 import uuid
-from fastapi import APIRouter, HTTPException, WebSocket
+from io import BytesIO
+from typing import Optional
+
+try:
+    import barcode
+    from barcode.writer import ImageWriter
+except ImportError:
+    barcode = None
+    ImageWriter = None
+
+from fastapi import APIRouter, HTTPException, Request, WebSocket
 from pydantic import BaseModel
 
 from src.bot.whatsapp.connection_manager import get_connection_manager
@@ -29,12 +40,29 @@ class QRCodeResponse(BaseModel):
     """QR code response."""
     connection_id: str
     qr_code_data: str  # base64 encoded PNG
+    barcode_data: Optional[str] = None
+    connect_url: Optional[str] = None
     status: str
     expires_in_seconds: int = 300
 
 
+def _generate_barcode_image(data: str) -> Optional[str]:
+    """Generate a barcode PNG as base64 when the dependency is available."""
+    if not barcode or not ImageWriter:
+        return None
+
+    try:
+        buffer = BytesIO()
+        barcode_obj = barcode.get("code128", data, writer=ImageWriter())
+        barcode_obj.write(buffer, options={"write_text": False})
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+    except Exception as e:
+        logger.warning(f"Barcode generation failed: {e}")
+        return None
+
+
 @router.post("/start-connection")
-async def start_connection(request: StartConnectionRequest) -> dict:
+async def start_connection(request: StartConnectionRequest, http_request: Request) -> dict:
     """
     Start a new WhatsApp connection.
     
@@ -50,17 +78,22 @@ async def start_connection(request: StartConnectionRequest) -> dict:
     try:
         manager = await get_connection_manager()
         connection_id = str(uuid.uuid4())
+        connect_url = str(http_request.base_url).rstrip("/") + f"/api/v1/whatsapp-qr/qr-code/{connection_id}"
         
         connection_info = await manager.start_connection(connection_id)
         qr_code = manager.get_qr_code(connection_id)
+        barcode_data = _generate_barcode_image(connect_url)
         
         logger.info(f"🚀 Started connection {connection_id}")
         
         return {
             "status": "success",
             "connection_id": connection_id,
+            "connect_url": connect_url,
             "message": "Scan the QR code with WhatsApp to connect",
             "has_qr_code": qr_code is not None,
+            "has_barcode": barcode_data is not None,
+            "barcode_data": f"data:image/png;base64,{barcode_data}" if barcode_data else None,
             "connection_info": connection_info,
         }
     
@@ -70,7 +103,7 @@ async def start_connection(request: StartConnectionRequest) -> dict:
 
 
 @router.get("/qr-code/{connection_id}")
-async def get_qr_code(connection_id: str) -> dict:
+async def get_qr_code(connection_id: str, http_request: Request) -> dict:
     """
     Get QR code for a connection.
     
@@ -82,6 +115,8 @@ async def get_qr_code(connection_id: str) -> dict:
     try:
         manager = await get_connection_manager()
         qr_data = manager.get_qr_code(connection_id)
+        connect_url = str(http_request.base_url).rstrip("/") + f"/api/v1/whatsapp-qr/qr-code/{connection_id}"
+        barcode_data = _generate_barcode_image(connect_url)
         
         if not qr_data:
             raise HTTPException(status_code=404, detail="QR code not found or expired")
@@ -91,6 +126,8 @@ async def get_qr_code(connection_id: str) -> dict:
         return {
             "connection_id": connection_id,
             "qr_code_data": f"data:image/png;base64,{qr_data}",
+            "barcode_data": f"data:image/png;base64,{barcode_data}" if barcode_data else None,
+            "connect_url": connect_url,
             "message": "Scan this QR code with WhatsApp to connect",
             "expires_in_seconds": 300,
         }

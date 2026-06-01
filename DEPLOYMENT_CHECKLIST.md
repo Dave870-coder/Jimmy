@@ -4,6 +4,23 @@ Follow this checklist step-by-step to deploy your bot to GitHub and Railway.
 
 ---
 
+## ✅ PRODUCTION HEALTH / STARTUP CHECKLIST
+
+Before you hand traffic to a new deployment, verify these items:
+
+- [ ] `python verify_production_startup.py` passes locally
+- [ ] `python run_bot.py` or `python start_bot.py` starts cleanly
+- [ ] `/health` returns `200` on the deployed URL
+- [ ] `/ready` returns ready after migrations complete
+- [ ] Telegram webhook is registered on the public deployment URL
+- [ ] WhatsApp QR connection returns both QR and barcode payloads
+- [ ] `.env` stays local and secrets are configured in the host dashboard
+- [ ] SQLite data is mounted on persistent storage, or a managed database is used
+- [ ] Render logs show no repeated startup failures
+- [ ] Telegram `/start` and WhatsApp message echo both respond successfully
+
+---
+
 ## ✅ PHASE 1: LOCAL VERIFICATION (5 min)
 
 ### 1.1 Verify Production Setup
