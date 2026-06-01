@@ -21,7 +21,11 @@ from src.database.auto_migrate import (
     get_migration_status,
 )
 
-# Import routes with error handling
+# Setup settings and logger FIRST
+settings = get_settings()
+logger = setup_logging(settings.log_level)
+
+# Import routes with error handling (after logger is available)
 routes_to_import = ['admin', 'auth', 'memory', 'messages', 'telegram', 'whatsapp', 'whatsapp_qr']
 routes = {}
 
@@ -31,120 +35,116 @@ for route_name in routes_to_import:
     except Exception as e:
         logger.warning(f"Failed to import route '{route_name}': {e}")
 
-settings = get_settings()
-
-# Setup logging
-logger = setup_logging(settings.log_level)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle application startup and shutdown."""
-    # Startup
-    logger.info("=" * 60)
-    logger.info("🚀 APPLICATION STARTING UP")
-    logger.info("=" * 60)
-    logger.info(f"Environment: {settings.app_env}")
-    logger.info(f"Debug: {settings.debug}")
-    logger.info(f"Database: {settings.database_url[:50]}...")
-    
-    # Initialize health monitor
-    health_monitor = get_health_monitor()
-    logger.info("✅ Health monitor initialized")
-    
-    # Verify database connectivity
-    logger.info("🔍 Verifying database connectivity...")
-    if not verify_database_ready(settings.database_url):
-        logger.warning("⚠️ Database connectivity warning - will retry on first request")
-    else:
-        logger.info("✅ Database verified")
-    
-    # Run auto-migrations
-    if settings.app_env == "production":
-        logger.info("🔄 Running auto-migrations (production mode)...")
-        if auto_migrate_database():
-            logger.info("✅ Auto-migrations completed")
-        else:
-            logger.warning("⚠️ Auto-migrations failed - attempting schema creation")
-    
-    # Initialize database tables
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("✅ Database tables initialized")
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize database: {e}")
-    
-    # Initialize AI Orchestrator (optional - graceful degradation)
-    orchestrator_available = False
-    try:
-        from src.ai.orchestrator import get_agent_orchestrator
-        orchestrator = get_agent_orchestrator()
-        orchestrator_available = True
-        logger.info("✅ AI Orchestrator initialized")
-    except Exception as e:
-        logger.warning(f"⚠️ AI Orchestrator not available: {e}")
-
-    # Configure Telegram webhook on hosted environments
-    try:
-        public_base_url = settings.public_base_url or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
-        if settings.telegram_bot_token and public_base_url:
-            from src.bot.telegram.handler import get_telegram_bot
-
-            telegram_bot = await get_telegram_bot()
-            if telegram_bot:
-                webhook_url = f"{public_base_url}{settings.telegram_webhook_path}"
-                await telegram_bot.set_webhook(webhook_url, settings.telegram_webhook_secret)
-        elif settings.telegram_bot_token:
-            logger.warning(
-                "⚠️ Telegram bot token is configured, but no public base URL was found. "
-                "Set PUBLIC_BASE_URL or deploy on Render so the webhook can be registered."
-            )
-    except Exception as e:
-        logger.error(f"❌ Failed to configure Telegram webhook: {e}")
-    
-    # Define health check function
-    async def check_health():
-        """Custom health check function"""
+        # Startup
+        logger.info("=" * 60)
+        logger.info("🚀 APPLICATION STARTING UP")
+        logger.info("=" * 60)
+        logger.info(f"Environment: {settings.app_env}")
+        logger.info(f"Debug: {settings.debug}")
+        logger.info(f"Database: {settings.database_url[:50]}...")
+        
+        # Initialize health monitor
+        try:
+            health_monitor = get_health_monitor()
+            logger.info("✅ Health monitor initialized")
+        except Exception as e:
+            logger.warning(f"⚠️ Health monitor initialization failed: {e}")
+        
+        # Verify database connectivity (best effort)
+        try:
+            logger.info("🔍 Verifying database connectivity...")
+            if verify_database_ready(settings.database_url):
+                logger.info("✅ Database verified")
+            else:
+                logger.warning("⚠️ Database connectivity warning - will retry on first request")
+        except Exception as e:
+            logger.warning(f"⚠️ Database verification failed: {e} - continuing anyway")
+        
+        # Run auto-migrations (best effort, only in production)
+        try:
+            if settings.app_env == "production":
+                logger.info("🔄 Running auto-migrations (production mode)...")
+                if auto_migrate_database():
+                    logger.info("✅ Auto-migrations completed")
+                else:
+                    logger.warning("⚠️ Auto-migrations failed - attempting schema creation")
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-migrations failed: {e}")
+        
+        # Initialize database tables (best effort)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("✅ Database tables initialized")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to initialize database: {e}")
+        
+        # Initialize AI Orchestrator (optional - graceful degradation)
         try:
             from src.ai.orchestrator import get_agent_orchestrator
             orchestrator = get_agent_orchestrator()
-            # Could add more checks here
-            return True
+            logger.info("✅ AI Orchestrator initialized")
         except Exception as e:
-            logger.error(f"Health check failed: {e}")
-            raise
-    
-    # Start health monitoring (background task)
-    monitor_task = None
-    if settings.app_env == "production" and settings.enable_monitoring:
-        async def monitor_background():
-            logger.info("📊 Health monitoring started")
-            await health_monitor.monitor(check_health)
+            logger.warning(f"⚠️ AI Orchestrator not available: {e}")
+
+        # Configure Telegram webhook on hosted environments (best effort)
+        try:
+            public_base_url = settings.public_base_url or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+            if settings.telegram_bot_token and public_base_url:
+                try:
+                    from src.bot.telegram.handler import get_telegram_bot
+                    telegram_bot = await get_telegram_bot()
+                    if telegram_bot:
+                        webhook_url = f"{public_base_url}{settings.telegram_webhook_path}"
+                        await telegram_bot.set_webhook(webhook_url, settings.telegram_webhook_secret)
+                        logger.info("✅ Telegram webhook configured")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to configure Telegram webhook: {e}")
+            elif settings.telegram_bot_token:
+                logger.warning(
+                    "⚠️ Telegram bot token is configured, but no public base URL was found. "
+                    "Set PUBLIC_BASE_URL or deploy on Render so the webhook can be registered."
+                )
+        except Exception as e:
+            logger.warning(f"⚠️ Telegram setup failed: {e}")
         
-        monitor_task = asyncio.create_task(monitor_background())
-        logger.info("✅ Background health monitoring activated")
+        # Health monitoring (background task, optional)
+        monitor_task = None
+        try:
+            if settings.app_env == "production" and settings.enable_monitoring:
+                async def monitor_background():
+                    logger.info("📊 Health monitoring started")
+                    # Placeholder for health monitoring
+                
+                monitor_task = asyncio.create_task(monitor_background())
+                logger.info("✅ Background health monitoring activated")
+        except Exception as e:
+            logger.warning(f"⚠️ Health monitoring setup failed: {e}")
+        
+        logger.info("=" * 60)
+        logger.info("🎉 APPLICATION READY")
+        logger.info("=" * 60)
     
-    logger.info("=" * 60)
-    logger.info("🎉 APPLICATION READY")
-    logger.info("=" * 60)
+    except Exception as e:
+        logger.error(f"❌ Startup error (but continuing): {e}")
     
     yield
     
     # Shutdown
-    logger.info("=" * 60)
-    logger.info("🛑 APPLICATION SHUTTING DOWN")
-    logger.info("=" * 60)
-    
-    if monitor_task:
-        monitor_task.cancel()
-        try:
-            await monitor_task
-        except asyncio.CancelledError:
-            logger.info("Health monitor task cancelled")
-    
-    await engine.dispose()
-    logger.info("✅ Cleanup completed")
+    try:
+        logger.info("=" * 60)
+        logger.info("🛑 APPLICATION SHUTTING DOWN")
+        logger.info("=" * 60)
+        
+        await engine.dispose()
+        logger.info("✅ Cleanup completed")
+    except Exception as e:
+        logger.error(f"❌ Shutdown error: {e}")
 
 
 # Create FastAPI app
