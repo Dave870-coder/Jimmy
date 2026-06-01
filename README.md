@@ -14,6 +14,23 @@ Click the button above to deploy your bot to **Render for FREE**! The bot will r
 3. Click "Create Web Service"
 4. Bot is LIVE! 🎉 (No credit card needed!)
 
+### Google AI Studio Setup
+
+1. Open [Google AI Studio](https://aistudio.google.com/).
+2. Create or copy an API key.
+3. Add it as `GOOGLE_API_KEY` in Render and in your local `.env` file.
+4. Use the same key in every environment where you want AI responses.
+
+### Render Environment Variables
+
+Set these in Render for production:
+
+1. `GOOGLE_API_KEY` - required for AI responses.
+2. `TELEGRAM_BOT_TOKEN` - required for Telegram webhooks and replies.
+3. `SECRET_KEY` - generate a strong production secret.
+4. `APP_ENV=production` and `DEBUG=False`.
+5. Keep `DATABASE_URL` on the Render disk-backed SQLite path already defined in `render.yaml`.
+
 ## ✅ Production Startup Checklist
 
 Use this quick check before you rely on a new deployment:
@@ -30,6 +47,7 @@ Use this quick check before you rely on a new deployment:
 - **🤖 Google AI Integration**: Powered by Gemini 2.0 Flash for fast, intelligent responses
 - **Multi-Channel Communication**: WhatsApp and Telegram bot support
 - **WhatsApp Connection Sharing**: QR code plus barcode payload for external connection flows
+- **Google AI Studio First**: Every agent routes through the same Gemini-backed reasoning engine
 - **Autonomous Agents**: Smart agent framework that routes queries intelligently
   - Chat Agent - General conversation
   - Research Agent - Knowledge base search
@@ -199,6 +217,16 @@ ai-bot-platform/
 
 See `.env.example` for all available configuration options.
 
+For local development, copy `.env.example` to `.env` and fill in at least:
+
+```bash
+GOOGLE_API_KEY=your-google-ai-studio-key
+TELEGRAM_BOT_TOKEN=your-telegram-token
+SECRET_KEY=your-production-secret
+```
+
+Without `GOOGLE_API_KEY`, the app will still start, but responses will fall back to a limited message until the key is configured.
+
 Key configurations:
 
 ```bash
@@ -317,13 +345,14 @@ railway up
 2. Create web service
 3. Add environment variables
 4. Deploy
+5. Open `/health` and `/ready` on the live URL and confirm they return success.
 
 ### WhatsApp Connection Flow
 
 The WhatsApp QR endpoints can be used to start a live connection session and retrieve both QR and barcode payloads for external access:
 
 1. Call `POST /api/v1/whatsapp-qr/start-connection`
-2. Open the returned QR or barcode data in a viewer
+2. Open the returned QR or barcode data in a viewer, or use the absolute `connect_url`
 3. Scan the QR with WhatsApp Linked Devices
 4. Use the status endpoint to confirm the session is authenticated
 

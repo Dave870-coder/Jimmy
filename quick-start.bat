@@ -17,8 +17,9 @@ if not exist .env (
     echo ✅ .env file created
     echo.
     echo ⚠️  IMPORTANT: Edit .env and add your API keys:
-    echo    - GOOGLE_API_KEY (from https://makersuite.google.com/app/apikey)
+    echo    - GOOGLE_API_KEY (create it in Google AI Studio: https://aistudio.google.com/)
     echo    - TELEGRAM_BOT_TOKEN (from @BotFather)
+    echo    - SECRET_KEY (generate a strong random value for production)
     echo.
     echo Then run this script again!
     pause
@@ -59,5 +60,13 @@ echo 📦 Installing dependencies...
 echo.
 echo 🚀 Starting bot...
 "%PYTHON%" start_bot.py
+
+echo.
+echo 🎯 Next steps:
+echo 1. Open Telegram and find your bot
+echo 2. Send /start to test the bot
+echo 3. Set GOOGLE_API_KEY in Render before production use
+echo 4. Render auto-deploys after you push to GitHub
+echo 5. API docs: http://localhost:8000/docs
 
 popd

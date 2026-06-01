@@ -67,8 +67,9 @@ if [ ! -f ".env" ]; then
     echo "✅ .env created (edit with your API keys)"
     echo ""
     echo "📝 You need to add:"
-    echo "   - GOOGLE_API_KEY (from https://makersuite.google.com/app/apikey)"
+    echo "   - GOOGLE_API_KEY (create it in Google AI Studio: https://aistudio.google.com/)"
     echo "   - TELEGRAM_BOT_TOKEN (from @BotFather on Telegram)"
+    echo "   - SECRET_KEY (generate a strong random value for production)"
 else
     echo "✅ .env already exists"
 fi
@@ -101,6 +102,7 @@ echo "   git commit -m 'Initial setup'"
 echo "   git push origin main"
 echo ""
 echo "5. Deploy to Render:"
+echo "   Set GOOGLE_API_KEY, TELEGRAM_BOT_TOKEN, SECRET_KEY, APP_ENV=production, DEBUG=False"
 echo "   Render auto-deploys after GitHub push"
 echo ""
 echo "🚀 Your AI Bot is ready!"

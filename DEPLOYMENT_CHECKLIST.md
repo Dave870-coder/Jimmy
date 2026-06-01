@@ -10,6 +10,8 @@ Before you hand traffic to a new deployment, verify these items:
 
 - [ ] `python verify_production_startup.py` passes locally
 - [ ] `python run_bot.py` or `python start_bot.py` starts cleanly
+- [ ] `GOOGLE_API_KEY` is set in Google AI Studio and copied into Render
+- [ ] `TELEGRAM_BOT_TOKEN` is set in Render for webhook delivery
 - [ ] `/health` returns `200` on the deployed URL
 - [ ] `/ready` returns ready after migrations complete
 - [ ] Telegram webhook is registered on the public deployment URL
@@ -33,6 +35,7 @@ Before you hand traffic to a new deployment, verify these items:
   - ✅ Configuration
   - ✅ Google AI
   - ✅ Telegram
+ - [ ] **Confirm**: Google AI Studio key is the same one you plan to use in Render
 
 ### 1.2 Test Bot Locally
 - [ ] Run: `python run_bot.py`
@@ -119,13 +122,13 @@ Before you hand traffic to a new deployment, verify these items:
 
 ```
 Key: GOOGLE_API_KEY
-Value: AIzaSyBk563VvLColh0pnXFRjfzMbnZkV7Ghb0U
+Value: <paste your Google AI Studio key>
 
 Key: TELEGRAM_BOT_TOKEN
-Value: 7895886891:AAFHQFUrgeRdeA_LI5P9y5lAZfKO3Mbd_M8
+Value: <paste your Telegram bot token>
 
 Key: DATABASE_URL
-Value: sqlite:///./data/bot.db
+Value: sqlite:////opt/data/bot.db
 
 Key: APP_ENV
 Value: production
@@ -134,7 +137,7 @@ Key: DEBUG
 Value: False
 
 Key: SECRET_KEY
-Value: your-secret-key-12345-change-me
+Value: <generate a long random secret>
 ```
 
 - [ ] After each variable, Railway auto-saves
@@ -147,6 +150,7 @@ Value: your-secret-key-12345-change-me
   - `BOT READY`
   - `Listening on 0.0.0.0:8000`
   - No error messages (only INFO logs)
+- [ ] **If Google AI fails**: verify the key in Render matches the one from Google AI Studio
 - [ ] If you see errors:
   - Check "Build" tab for build errors
   - Check variable names for typos
@@ -180,6 +184,7 @@ Value: your-secret-key-12345-change-me
 - [ ] **Expected**: Bot responds with greeting message
 - [ ] Send: `hello`
 - [ ] **Expected**: Bot responds with message using Google AI
+- [ ] If the bot replies with a fallback message, recheck `GOOGLE_API_KEY` in the host dashboard
 
 ### 4.2 If Bot Doesn't Respond
 - [ ] Check Railway logs: see if message was received
@@ -214,6 +219,7 @@ Value: your-secret-key-12345-change-me
 - [ ] Download local backup of `data/bot.db` (if populated)
 - [ ] Store safely in your local project folder
 - [ ] Note: Railway provides auto-backups (included in service)
+- [ ] If you move to Render-only hosting, keep the SQLite disk mount configured or switch to managed Postgres
 
 ### 5.4 Document Access
 - [ ] Note your Railway URL: `https://your-app.railway.app`
