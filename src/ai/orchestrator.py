@@ -1,4 +1,4 @@
-"""AI Agent framework using LangGraph."""
+"""AI Agent framework using Google AI Studio as the primary reasoning engine."""
 
 import json
 import logging
@@ -49,12 +49,9 @@ class ChatAgent:
 
     def __init__(self, system_prompt: Optional[str] = None):
         """Initialize chat agent with Google AI."""
-        if not GENAI_AVAILABLE:
-            raise ValueError("google.generativeai package not available")
-        if not settings.google_api_key:
-            raise ValueError("GOOGLE_API_KEY not configured in .env")
-        
-        self.model = genai.GenerativeModel(settings.google_model)
+        self.model = None
+        if GENAI_AVAILABLE and settings.google_api_key:
+            self.model = genai.GenerativeModel(settings.google_model)
         self.system_prompt = system_prompt or self._get_default_system_prompt()
         self.conversation_history = []
 
@@ -75,6 +72,15 @@ Your characteristics:
         full_prompt = f"{system_prompt}\n\nUser: {state.input_text}"
         
         try:
+            if self.model is None:
+                logger.warning("Google AI not configured; using fallback response")
+                output = (
+                    "Google AI Studio is not configured yet. "
+                    "Set GOOGLE_API_KEY in Render or your local environment to enable full responses."
+                )
+                state.output = output
+                return output
+
             response = self.model.generate_content(full_prompt)
             output = response.text
             state.output = output
@@ -87,46 +93,73 @@ Your characteristics:
 class ResearchAgent:
     """Research agent for knowledge base search."""
 
+    def __init__(self, chat_agent: ChatAgent):
+        self.chat_agent = chat_agent
+
     async def process(self, state: AgentState) -> str:
-        """Search knowledge base for relevant information."""
-        logger.info(f"Research agent processing: {state.input_text}")
-        return f"Searching knowledge base for: {state.input_text}"
+        """Search knowledge base and answer using Google AI Studio."""
+        prompt = (
+            "You are the research agent for this bot. Use Google AI Studio reasoning to answer with concise, grounded, practical detail. "
+            "If the request is about finding or comparing information, explain the relevant facts clearly."
+        )
+        return await self.chat_agent.process(state, custom_prompt=prompt)
 
 
 class MemoryAgent:
     """Memory agent for storing and retrieving memories."""
 
+    def __init__(self, chat_agent: ChatAgent):
+        self.chat_agent = chat_agent
+
     async def process(self, state: AgentState) -> str:
-        """Store or retrieve memories."""
-        logger.info(f"Memory agent processing: {state.input_text}")
-        return "Memory operation completed"
+        """Store or retrieve memories using Google AI Studio."""
+        prompt = (
+            "You are the memory agent. Interpret the user's request and respond with a short action plan or memory summary. "
+            "If they are asking to remember something, restate the memory clearly and confirm it."
+        )
+        return await self.chat_agent.process(state, custom_prompt=prompt)
 
 
 class WorkflowAgent:
     """Workflow agent for task automation."""
 
+    def __init__(self, chat_agent: ChatAgent):
+        self.chat_agent = chat_agent
+
     async def process(self, state: AgentState) -> str:
-        """Execute workflow tasks."""
-        logger.info(f"Workflow agent processing: {state.input_text}")
-        return "Workflow execution completed"
+        """Execute workflow tasks using Google AI Studio."""
+        prompt = (
+            "You are the workflow agent. Break the user's task into a practical sequence of steps and mention any prerequisites or risks."
+        )
+        return await self.chat_agent.process(state, custom_prompt=prompt)
 
 
 class PlannerAgent:
     """Planner agent for breaking down complex requests."""
 
+    def __init__(self, chat_agent: ChatAgent):
+        self.chat_agent = chat_agent
+
     async def process(self, state: AgentState) -> str:
-        """Break down complex requests into steps."""
-        logger.info(f"Planner agent processing: {state.input_text}")
-        return "Plan created for: " + state.input_text
+        """Break down complex requests into steps using Google AI Studio."""
+        prompt = (
+            "You are the planning agent. Create a crisp multi-step plan, identify dependencies, and keep it actionable."
+        )
+        return await self.chat_agent.process(state, custom_prompt=prompt)
 
 
 class ToolAgent:
     """Tool agent for using external APIs."""
 
+    def __init__(self, chat_agent: ChatAgent):
+        self.chat_agent = chat_agent
+
     async def process(self, state: AgentState) -> str:
-        """Execute external tool calls."""
-        logger.info(f"Tool agent processing: {state.input_text}")
-        return "Tool execution completed"
+        """Select or explain tool usage using Google AI Studio."""
+        prompt = (
+            "You are the tool agent. Decide which resource or external action would be appropriate, explain the choice, and note any limitations."
+        )
+        return await self.chat_agent.process(state, custom_prompt=prompt)
 
 
 class AgentOrchestrator:
@@ -141,11 +174,11 @@ class AgentOrchestrator:
             logger.error(f"Failed to initialize ChatAgent: {e}")
             raise
         
-        self.research_agent = ResearchAgent()
-        self.memory_agent = MemoryAgent()
-        self.workflow_agent = WorkflowAgent()
-        self.planner_agent = PlannerAgent()
-        self.tool_agent = ToolAgent()
+        self.research_agent = ResearchAgent(self.chat_agent)
+        self.memory_agent = MemoryAgent(self.chat_agent)
+        self.workflow_agent = WorkflowAgent(self.chat_agent)
+        self.planner_agent = PlannerAgent(self.chat_agent)
+        self.tool_agent = ToolAgent(self.chat_agent)
         
         # Track agent usage and performance
         self.usage_stats = {
@@ -172,7 +205,7 @@ class AgentOrchestrator:
             return "planner", self.planner_agent
         elif any(keyword in input_lower for keyword in ["workflow", "automate", "task", "execute"]):
             return "workflow", self.workflow_agent
-        elif any(keyword in input_lower for keyword in ["calculate", "api", "tool", "function"]):
+        elif any(keyword in input_lower for keyword in ["calculate", "api", "tool", "function", "resource", "image", "file", "document"]):
             return "tool", self.tool_agent
         else:
             return "chat", self.chat_agent
