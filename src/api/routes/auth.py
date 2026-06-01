@@ -3,7 +3,7 @@
 import uuid
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_data: UserCreate, db: AsyncSession = None):
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user."""
     # TODO: Implement database storage
     user_id = str(uuid.uuid4())

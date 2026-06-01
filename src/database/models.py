@@ -5,6 +5,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -25,20 +26,20 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = String(36, primary_key=True)
-    username = String(255, unique=True, nullable=False, index=True)
-    email = String(255, unique=True, nullable=False, index=True)
-    password_hash = String(255, nullable=False)
-    first_name = String(255)
-    last_name = String(255)
-    avatar_url = String(512)
-    is_active = Boolean(default=True)
-    is_admin = Boolean(default=False)
-    telegram_user_id = String(255, unique=True, nullable=True)
-    whatsapp_phone = String(50, unique=True, nullable=True)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
-    last_login = DateTime(timezone=True, nullable=True)
+    id = Column(String(36), primary_key=True)
+    username = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    first_name = Column(String(255))
+    last_name = Column(String(255))
+    avatar_url = Column(String(512))
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    telegram_user_id = Column(String(255), unique=True, nullable=True)
+    whatsapp_phone = Column(String(50), unique=True, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     messages = relationship("Message", back_populates="user", cascade="all, delete-orphan")
@@ -58,19 +59,19 @@ class Message(Base):
 
     __tablename__ = "messages"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    content = Text(nullable=False)
-    message_type = String(50)  # text, voice, image, document
-    source = String(50)  # telegram, whatsapp, api
-    source_message_id = String(255)
-    response = Text(nullable=True)
-    ai_model = String(100)
-    tokens_used = Integer(default=0)
-    confidence_score = Float(nullable=True)
-    is_learning = Boolean(default=False)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    message_type = Column(String(50))  # text, voice, image, document
+    source = Column(String(50))  # telegram, whatsapp, api
+    source_message_id = Column(String(255))
+    response = Column(Text, nullable=True)
+    ai_model = Column(String(100))
+    tokens_used = Column(Integer, default=0)
+    confidence_score = Column(Float, nullable=True)
+    is_learning = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="messages")
@@ -86,19 +87,19 @@ class Memory(Base):
 
     __tablename__ = "memories"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    title = String(255, nullable=False)
-    content = Text(nullable=False)
-    memory_type = String(50)  # fact, preference, relationship, context
-    category = String(100)
-    importance = Integer(default=5)  # 1-10
-    embedding_id = String(255)  # Reference to vector DB
-    tags = String(500)  # Comma-separated
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
-    last_accessed = DateTime(timezone=True, nullable=True)
-    access_count = Integer(default=0)
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    memory_type = Column(String(50))  # fact, preference, relationship, context
+    category = Column(String(100))
+    importance = Column(Integer, default=5)  # 1-10
+    embedding_id = Column(String(255))  # Reference to vector DB
+    tags = Column(String(500))  # Comma-separated
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_accessed = Column(DateTime(timezone=True), nullable=True)
+    access_count = Column(Integer, default=0)
 
     # Relationships
     user = relationship("User", back_populates="memories")
@@ -114,19 +115,19 @@ class Document(Base):
 
     __tablename__ = "documents"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    filename = String(255, nullable=False)
-    file_type = String(50)  # pdf, docx, txt, md
-    file_size = Integer()
-    file_path = String(512)
-    s3_key = String(512)
-    document_type = String(100)
-    content_preview = Text()
-    embedding_id = String(255)  # Reference to vector DB
-    is_indexed = Boolean(default=False)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_type = Column(String(50))  # pdf, docx, txt, md
+    file_size = Column(Integer)
+    file_path = Column(String(512))
+    s3_key = Column(String(512))
+    document_type = Column(String(100))
+    content_preview = Column(Text)
+    embedding_id = Column(String(255))  # Reference to vector DB
+    is_indexed = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     __table_args__ = (
         Index("idx_user_id", "user_id"),
@@ -139,14 +140,14 @@ class Embedding(Base):
 
     __tablename__ = "embeddings"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    content = Text(nullable=False)
-    embedding_type = String(50)  # memory, document, message
-    reference_id = String(255)  # Foreign key to memory, document, or message
-    model = String(100)
-    vector_id = String(255)  # Reference to ChromaDB
-    created_at = DateTime(timezone=True, server_default=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    content = Column(Text, nullable=False)
+    embedding_type = Column(String(50))  # memory, document, message
+    reference_id = Column(String(255))  # Foreign key to memory, document, or message
+    model = Column(String(100))
+    vector_id = Column(String(255))  # Reference to ChromaDB
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_reference_id", "reference_id"),
@@ -159,16 +160,16 @@ class Workflow(Base):
 
     __tablename__ = "workflows"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    name = String(255, nullable=False)
-    description = Text()
-    trigger_type = String(100)  # manual, scheduled, event-based
-    trigger_config = Text()  # JSON configuration
-    actions = Text()  # JSON array of actions
-    is_active = Boolean(default=True)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    trigger_type = Column(String(100))  # manual, scheduled, event-based
+    trigger_config = Column(Text)  # JSON configuration
+    actions = Column(Text)  # JSON array of actions
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="workflows")
@@ -184,19 +185,19 @@ class Task(Base):
 
     __tablename__ = "tasks"
 
-    id = String(36, primary_key=True)
-    workflow_id = String(36, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    name = String(255, nullable=False)
-    status = String(50, default="pending")  # pending, running, completed, failed
-    scheduled_time = DateTime(timezone=True, nullable=True)
-    execution_time = DateTime(timezone=True, nullable=True)
-    completed_time = DateTime(timezone=True, nullable=True)
-    result = Text()
-    error_message = Text()
-    retry_count = Integer(default=0)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
+    id = Column(String(36), primary_key=True)
+    workflow_id = Column(String(36), ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    status = Column(String(50), default="pending")  # pending, running, completed, failed
+    scheduled_time = Column(DateTime(timezone=True), nullable=True)
+    execution_time = Column(DateTime(timezone=True), nullable=True)
+    completed_time = Column(DateTime(timezone=True), nullable=True)
+    result = Column(Text)
+    error_message = Column(Text)
+    retry_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     __table_args__ = (
         Index("idx_user_id_status", "user_id", "status"),
@@ -209,14 +210,14 @@ class Feedback(Base):
 
     __tablename__ = "feedback"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    message_id = String(255, nullable=True)
-    rating = Integer()  # 1-5 stars or thumbs up/down
-    feedback_type = String(50)  # positive, negative, neutral
-    comment = Text()
-    improvement_suggestion = Text()
-    created_at = DateTime(timezone=True, server_default=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    message_id = Column(String(255), nullable=True)
+    rating = Column(Integer)  # 1-5 stars or thumbs up/down
+    feedback_type = Column(String(50))  # positive, negative, neutral
+    comment = Column(Text)
+    improvement_suggestion = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     user = relationship("User", back_populates="feedback")
@@ -232,11 +233,11 @@ class Analytics(Base):
 
     __tablename__ = "analytics"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    event_type = String(100)
-    event_data = Text()  # JSON
-    date = DateTime(timezone=True, server_default=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    event_type = Column(String(100))
+    event_data = Column(Text)  # JSON
+    date = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_user_id_date", "user_id", "date"),
@@ -249,19 +250,19 @@ class Settings(Base):
 
     __tablename__ = "settings"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
-    theme = String(50, default="light")
-    language = String(50, default="en")
-    timezone = String(100, default="UTC")
-    notifications_enabled = Boolean(default=True)
-    email_notifications = Boolean(default=True)
-    sms_notifications = Boolean(default=False)
-    auto_learning_enabled = Boolean(default=True)
-    model_preference = String(100)
-    max_memory_items = Integer(default=1000)
-    created_at = DateTime(timezone=True, server_default=func.now())
-    updated_at = DateTime(timezone=True, onupdate=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    theme = Column(String(50), default="light")
+    language = Column(String(50), default="en")
+    timezone = Column(String(100), default="UTC")
+    notifications_enabled = Column(Boolean, default=True)
+    email_notifications = Column(Boolean, default=True)
+    sms_notifications = Column(Boolean, default=False)
+    auto_learning_enabled = Column(Boolean, default=True)
+    model_preference = Column(String(100))
+    max_memory_items = Column(Integer, default=1000)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     __table_args__ = (
         Index("idx_user_id", "user_id"),
@@ -273,17 +274,17 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id = String(36, primary_key=True)
-    user_id = String(36, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    action = String(255)
-    resource_type = String(100)
-    resource_id = String(255)
-    changes = Text()  # JSON of changes
-    ip_address = String(50)
-    user_agent = String(512)
-    status = String(50)  # success, failure
-    error_message = Text()
-    created_at = DateTime(timezone=True, server_default=func.now())
+    id = Column(String(36), primary_key=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    action = Column(String(255))
+    resource_type = Column(String(100))
+    resource_id = Column(String(255))
+    changes = Column(Text)  # JSON of changes
+    ip_address = Column(String(50))
+    user_agent = Column(String(512))
+    status = Column(String(50))  # success, failure
+    error_message = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_user_id", "user_id"),

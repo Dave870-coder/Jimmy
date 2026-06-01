@@ -1,5 +1,6 @@
-"""Package initialization for API routes."""
+"""Package initialization for API routes.
 
-from . import admin, auth, memory, messages, telegram, whatsapp
+Routes are imported on-demand in main.py with error handling.
+"""
 
-__all__ = ["admin", "auth", "memory", "messages", "telegram", "whatsapp"]
+__all__ = []
