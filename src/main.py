@@ -194,6 +194,28 @@ try:
         except Exception as e:
             logger.warning(f"⚠️ {route_name.capitalize()} route failed: {e}")
     
+    # Layer 7: Initialize AI Orchestrator (optional, graceful degradation)
+    ai_orchestrator = None
+    try:
+        from src.ai.orchestrator import get_agent_orchestrator
+        ai_orchestrator = get_agent_orchestrator()
+        logger.info("✅ AI Orchestrator initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ AI Orchestrator initialization failed: {e}")
+        logger.info("ℹ️  Bot will run without AI features")
+    
+    # Layer 8: Enhanced health endpoint with AI status
+    @app.get("/health/detailed")
+    async def health_detailed():
+        """Detailed health endpoint with orchestrator status."""
+        ai_status = "initialized" if ai_orchestrator else "unavailable"
+        return {
+            "status": "healthy",
+            "database": "ready" if db_ready else "not_initialized",
+            "orchestrator": ai_status,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
     logger.info("✅ App created successfully")
 
 except Exception as e:
