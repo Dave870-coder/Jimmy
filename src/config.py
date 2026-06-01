@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     api_version: str = "v1"
 
     # Database
-    database_url: str = "postgresql://user:password@localhost:5432/aibot_db"
+    database_url: str = "sqlite:///./data/bot.db"  # SQLite fallback, override with DATABASE_URL env var
     database_echo: bool = False
     database_pool_size: int = 20
     database_max_overflow: int = 10

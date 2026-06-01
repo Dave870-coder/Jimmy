@@ -8,19 +8,30 @@ from pythonjsonlogger import jsonlogger
 
 
 def setup_logging(log_level: str = "INFO"):
-    """Setup application logging."""
+    """Setup application logging with error handling."""
     logger = logging.getLogger()
     logger.setLevel(log_level)
     
-    # JSON formatter for structured logging
-    json_formatter = jsonlogger.JsonFormatter(
-        '%(timestamp)s %(level)s %(name)s %(message)s'
-    )
+    # Clear existing handlers
+    logger.handlers = []
     
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(json_formatter)
-    logger.addHandler(console_handler)
+    try:
+        # Try JSON formatter for structured logging
+        json_formatter = jsonlogger.JsonFormatter(
+            '%(timestamp)s %(level)s %(name)s %(message)s'
+        )
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(json_formatter)
+        logger.addHandler(console_handler)
+    except Exception as e:
+        # Fallback to simple formatter if python-json-logger fails
+        simple_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(simple_formatter)
+        logger.addHandler(console_handler)
+        logger.warning(f"Using simple logging format (JSON logger unavailable: {e})")
     
     return logger
 

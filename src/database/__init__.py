@@ -19,7 +19,9 @@ database_url = settings.database_url
 if database_url.startswith("sqlite:///"):
     sqlite_path = Path(database_url.replace("sqlite:///", "", 1))
     if sqlite_path.as_posix() != ":memory:":
+        # Create data directory if it doesn't exist
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"SQLite database path: {sqlite_path.absolute()}")
 
 if database_url.startswith("sqlite://"):
     # SQLite with aiosqlite for async support
