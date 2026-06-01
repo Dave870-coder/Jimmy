@@ -115,11 +115,13 @@ git push origin main
 
 ## 🔧 Requirements
 
-- Python 3.12+
+- Python 3.12 or 3.13
 - PostgreSQL 13+
 - Redis 6+
 - Docker & Docker Compose
 - Node.js 18+ (for dashboard)
+
+> Important: Python 3.14 is not currently supported because the project depends on `pydantic-core`, which does not yet provide prebuilt wheels for Python 3.14 on all platforms.
 
 ## 🚀 Quick Start
 
