@@ -30,9 +30,49 @@ def check_database_initialized() -> bool:
         logger.debug(f"Found {table_count} tables: {tables}")
         
         # If we have any tables, database is initialized
-        is_initialized = table_count > 0
-        logger.info(f"Database initialized: {is_initialized}")
-        return is_initialized
+        if table_count > 0:
+            logger.info(f"✅ Database initialized: {table_count} tables found")
+            return True
+        
+        # No tables found - try to create them
+        logger.warning(f"⚠️ No tables found - attempting emergency initialization")
+        try:
+            import pathlib
+            import src.database.models  # noqa
+            from src.database import Base as db_base
+            
+            # Ensure directory exists
+            if sync_url.startswith('sqlite:///'):
+                db_path = sync_url.replace('sqlite:///', '')
+                db_dir = os.path.dirname(db_path)
+                if db_dir:
+                    pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
+            
+            # Create tables
+            logger.info(f"Creating tables via emergency initialization...")
+            sync_engine = create_engine(sync_url, echo=False)
+            db_base.metadata.create_all(sync_engine)
+            sync_engine.dispose()
+            logger.info(f"✅ Emergency initialization completed")
+            
+            # Verify
+            engine = create_engine(sync_url, echo=False)
+            inspector = inspect(engine)
+            tables = inspector.get_table_names()
+            engine.dispose()
+            
+            if len(tables) > 0:
+                logger.info(f"✅ Emergency initialization succeeded: {len(tables)} tables created")
+                return True
+            else:
+                logger.error(f"❌ Emergency initialization failed - no tables after create_all")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Emergency initialization exception: {e}")
+            logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
+            return False
+            
     except Exception as e:
         logger.error(f"Database check failed: {e}")
         import traceback
