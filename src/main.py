@@ -20,15 +20,23 @@ def check_database_initialized() -> bool:
         if sync_url.startswith('sqlite+'):
             sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
         
+        logger.debug(f"Checking database at: {sync_url}")
         engine = create_engine(sync_url, echo=False)
         inspector = inspect(engine)
         tables = inspector.get_table_names()
         engine.dispose()
         
+        table_count = len(tables)
+        logger.debug(f"Found {table_count} tables: {tables}")
+        
         # If we have any tables, database is initialized
-        return len(tables) > 0
+        is_initialized = table_count > 0
+        logger.info(f"Database initialized: {is_initialized}")
+        return is_initialized
     except Exception as e:
-        logger.debug(f"Database check failed: {e}")
+        logger.error(f"Database check failed: {e}")
+        import traceback
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         return False
 
 # Track initialization status
@@ -104,14 +112,15 @@ try:
             try:
                 from src.database import engine as db_engine
                 from src.database import Base as db_base
-                if db_engine and db_base and db_ready:
-                    try:
-                        logger.info("Verifying database connection pool...")
-                        # Just test connection without inspection for async compatibility
-                        async with db_engine.begin() as conn:
-                            logger.info("✅ Database connection verified")
-                    except Exception as e:
-                        logger.debug(f"Async verify (non-critical): {e}")
+                if db_engine and db_base:
+                    if check_database_initialized():
+                        try:
+                            logger.info("Verifying database connection pool...")
+                            # Just test connection without inspection for async compatibility
+                            async with db_engine.begin() as conn:
+                                logger.info("✅ Database connection verified")
+                        except Exception as e:
+                            logger.debug(f"Async verify (non-critical): {e}")
             except Exception as e:
                 logger.debug(f"Database engine verification: {e}")
             
@@ -314,9 +323,10 @@ try:
         except Exception:
             ai_status = "unavailable"
         
+        db_status = "ready" if check_database_initialized() else "not_initialized"
         return {
             "status": "healthy",
-            "database": "ready" if db_ready else "not_initialized",
+            "database": db_status,
             "orchestrator": ai_status,
             "timestamp": datetime.utcnow().isoformat(),
         }
