@@ -55,9 +55,25 @@ try:
             try:
                 logger.info("Loading database models...")
                 import src.database.models  # noqa - triggers all model class definitions
-                logger.info("✅ All database models loaded and tables initialized")
+                logger.info("✅ All database models loaded")
+                
+                # Create tables synchronously after models are loaded
+                from sqlalchemy import create_engine
+                from src.database import Base
+                from src.config import settings
+                
+                sync_url = settings.database_url
+                if sync_url.startswith('sqlite+'):
+                    sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+                
+                logger.info(f"Creating database tables at: {sync_url}")
+                sync_engine = create_engine(sync_url, echo=False)
+                Base.metadata.create_all(sync_engine)
+                logger.info("✅ Database tables initialized")
+                sync_engine.dispose()
+                
             except Exception as e:
-                logger.warning(f"⚠️ Model import: {e}")
+                logger.warning(f"⚠️ Model import or table creation: {e}")
             
             # Verify database with async context (for pool initialization)
             if engine and Base:
