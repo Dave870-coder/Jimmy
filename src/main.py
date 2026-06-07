@@ -362,14 +362,42 @@ try:
     )
     
     async def check_database_status():
-        """Check if database is initialized, with lazy initialization fallback."""
-        # First, try lazy initialization if not already initialized
-        # This handles cases where lifespan startup didn't run or failed
+        """Check if database is initialized, with forced lazy initialization."""
+        # ALWAYS try lazy initialization first - this is our fallback guarantee
         ensure_database_initialized()
         
         # Now check if initialized
         if check_database_initialized():
             return "ready"
+        
+        # If still not initialized, try emergency initialization again
+        logger.error("❌ Database still not initialized after lazy init - forcing emergency creation")
+        try:
+            import src.database.models  # noqa
+            from src.database import Base as db_base
+            from sqlalchemy import create_engine, inspect
+            from src.config import get_settings
+            
+            settings = get_settings()
+            sync_url = settings.database_url
+            if sync_url.startswith('sqlite+'):
+                sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+            
+            logger.error(f"Emergency force creating at: {sync_url}")
+            engine = create_engine(sync_url, echo=False)
+            db_base.metadata.create_all(engine)
+            
+            inspector = inspect(engine)
+            tables = inspector.get_table_names()
+            engine.dispose()
+            
+            logger.error(f"Force creation resulted in {len(tables)} tables")
+            
+            if len(tables) > 0:
+                return "ready"
+        except Exception as e:
+            logger.error(f"❌ Force creation failed: {e}")
+        
         return "not_initialized"
     
     @app.get("/")
