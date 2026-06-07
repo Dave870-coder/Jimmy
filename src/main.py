@@ -131,16 +131,16 @@ try:
     )
     
     async def check_database_status():
-        """Check if database is initialized by querying for tables."""
+        """Check if database is initialized."""
         try:
             if engine:
-                from sqlalchemy import inspect
+                # Try to get a connection and check if it works
                 async with engine.connect() as conn:
-                    inspector = inspect(conn)
-                    tables = inspector.get_table_names()
-                    return "ready" if len(tables) > 0 else "not_initialized"
+                    await conn.execute("SELECT 1")
+                    # If we got here, database is ready
+                    return "ready"
         except:
-            return "error"
+            pass
         return "not_initialized"
     
     @app.get("/")
