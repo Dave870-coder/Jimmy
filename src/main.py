@@ -34,45 +34,11 @@ try:
     engine = None
     Base = None
     try:
-        from pathlib import Path
         from src.database import engine, Base
-        
-        # Ensure database directory exists
-        if hasattr(settings, 'database_url') and settings.database_url.startswith('sqlite:'):
-            db_path_str = settings.database_url.replace('sqlite:///', '').replace('sqlite:', '').strip('/')
-            if db_path_str and db_path_str != ':memory:':
-                db_path = Path(db_path_str)
-                db_path.parent.mkdir(parents=True, exist_ok=True)
-                logger.info(f"✅ Database directory ensured: {db_path.parent}")
-        
-        # Pre-initialize: synchronously create tables with SQLAlchemy sync engine for Render compatibility
-        try:
-            from sqlalchemy import create_engine, inspect
-            sync_url = settings.database_url
-            if sync_url.startswith('sqlite+'):
-                sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
-            
-            logger.info(f"Initializing database with sync engine: {sync_url[:50]}...")
-            sync_engine = create_engine(sync_url, echo=False, connect_args={"timeout": 30} if 'sqlite' in sync_url else {})
-            
-            # Create all tables
-            Base.metadata.create_all(sync_engine)
-            
-            # Verify tables were created
-            inspector = inspect(sync_engine)
-            tables = inspector.get_table_names()
-            logger.info(f"✅ Database tables created: {', '.join(tables) if tables else 'none (may be empty db)'}")
-            
-            sync_engine.dispose()
-            db_ready = True
-        except Exception as e:
-            logger.warning(f"⚠️ Sync database init failed, will retry in async: {e}")
-            db_ready = False
-        
         init_status["database"] = True
-        logger.info("✅ Database engine initialized")
+        logger.info("✅ Database engine imported")
     except Exception as e:
-        logger.warning(f"⚠️ Database init failed: {e}")
+        logger.warning(f"⚠️ Database import failed: {e}")
         import traceback
         logger.warning(traceback.format_exc())
     
@@ -85,14 +51,48 @@ try:
             logger.info("🚀 APPLICATION STARTING UP")
             logger.info("=" * 60)
             
+            # Import all models to ensure they're registered with Base
+            try:
+                logger.info("Loading database models...")
+                import src.database.models  # noqa - triggers all model class definitions
+                logger.info("✅ All database models loaded")
+            except Exception as e:
+                logger.warning(f"⚠️ Model import: {e}")
+            
+            # Initialize database tables
+            if engine and Base:
+                try:
+                    logger.info("Initializing database tables...")
+                    from sqlalchemy import create_engine, inspect
+                    sync_url = settings.database_url
+                    if sync_url.startswith('sqlite+'):
+                        sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+                    
+                    logger.info(f"Database URL: {sync_url[:60]}...")
+                    sync_engine = create_engine(sync_url, echo=False)
+                    Base.metadata.create_all(sync_engine)
+                    
+                    inspector = inspect(sync_engine)
+                    tables = inspector.get_table_names()
+                    logger.info(f"✅ Database initialized with tables: {', '.join(tables) if tables else 'none'}")
+                    sync_engine.dispose()
+                    
+                    # Mark database as ready
+                    globals()['db_ready'] = True
+                    
+                except Exception as e:
+                    logger.error(f"❌ Database init failed: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
             if db_ready and engine and Base:
                 try:
-                    logger.info("Verifying database tables in async context...")
+                    logger.info("Verifying async database context...")
                     async with engine.begin() as conn:
                         await conn.run_sync(Base.metadata.create_all)
-                    logger.info("✅ Database tables verified/created in async context")
+                    logger.info("✅ Async database verified")
                 except Exception as e:
-                    logger.warning(f"⚠️ Async database verification failed (but sync already done): {e}")
+                    logger.warning(f"⚠️ Async verify (non-critical): {e}")
             
             # Initialize AI Orchestrator (optional, graceful degradation)
             try:
