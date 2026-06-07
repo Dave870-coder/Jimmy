@@ -55,42 +55,19 @@ try:
             try:
                 logger.info("Loading database models...")
                 import src.database.models  # noqa - triggers all model class definitions
-                logger.info("✅ All database models loaded")
+                logger.info("✅ All database models loaded and tables initialized")
             except Exception as e:
                 logger.warning(f"⚠️ Model import: {e}")
             
-            # Initialize database tables
+            # Verify database with async context (for pool initialization)
             if engine and Base:
                 try:
-                    logger.info("Initializing database tables...")
-                    from sqlalchemy import create_engine, inspect
-                    sync_url = settings.database_url
-                    if sync_url.startswith('sqlite+'):
-                        sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
-                    
-                    logger.info(f"Database URL: {sync_url[:60]}...")
-                    sync_engine = create_engine(sync_url, echo=False)
-                    Base.metadata.create_all(sync_engine)
-                    
-                    inspector = inspect(sync_engine)
-                    tables = inspector.get_table_names()
-                    logger.info(f"✅ Database initialized with tables: {', '.join(tables) if tables else 'none'}")
-                    sync_engine.dispose()
-                    
-                    # Mark database as ready
-                    globals()['db_ready'] = True
-                    
-                except Exception as e:
-                    logger.error(f"❌ Database init failed: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-            
-            if db_ready and engine and Base:
-                try:
-                    logger.info("Verifying async database context...")
-                    async with engine.begin() as conn:
-                        await conn.run_sync(Base.metadata.create_all)
-                    logger.info("✅ Async database verified")
+                    logger.info("Initializing async database connection pool...")
+                    from sqlalchemy import inspect
+                    async with engine.connect() as conn:
+                        inspector = inspect(conn)
+                        tables = await conn.run_sync(lambda c: inspect(c).get_table_names())
+                        logger.info(f"✅ Database ready with {len(tables)} tables")
                 except Exception as e:
                     logger.warning(f"⚠️ Async verify (non-critical): {e}")
             

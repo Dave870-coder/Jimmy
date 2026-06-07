@@ -67,6 +67,26 @@ AsyncSessionLocal = sessionmaker(
 
 Base = declarative_base()
 
+# Pre-initialize database tables synchronously on import
+def _init_tables():
+    """Initialize database tables at import time."""
+    try:
+        from sqlalchemy import create_engine
+        sync_url = settings.database_url
+        if sync_url.startswith('sqlite+'):
+            sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+        
+        print(f"[DB] Creating tables with sync engine at import time...")
+        sync_engine = create_engine(sync_url, echo=False)
+        Base.metadata.create_all(sync_engine)
+        print(f"[DB] Tables initialized successfully")
+        sync_engine.dispose()
+    except Exception as e:
+        print(f"[DB] Warning - table init at import time failed: {e}")
+
+# Call initialization on import
+_init_tables()
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
