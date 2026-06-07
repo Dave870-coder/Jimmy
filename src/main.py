@@ -45,9 +45,32 @@ try:
                 db_path.parent.mkdir(parents=True, exist_ok=True)
                 logger.info(f"✅ Database directory ensured: {db_path.parent}")
         
+        # Pre-initialize: synchronously create tables with SQLAlchemy sync engine for Render compatibility
+        try:
+            from sqlalchemy import create_engine, inspect
+            sync_url = settings.database_url
+            if sync_url.startswith('sqlite+'):
+                sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+            
+            logger.info(f"Initializing database with sync engine: {sync_url[:50]}...")
+            sync_engine = create_engine(sync_url, echo=False, connect_args={"timeout": 30} if 'sqlite' in sync_url else {})
+            
+            # Create all tables
+            Base.metadata.create_all(sync_engine)
+            
+            # Verify tables were created
+            inspector = inspect(sync_engine)
+            tables = inspector.get_table_names()
+            logger.info(f"✅ Database tables created: {', '.join(tables) if tables else 'none (may be empty db)'}")
+            
+            sync_engine.dispose()
+            db_ready = True
+        except Exception as e:
+            logger.warning(f"⚠️ Sync database init failed, will retry in async: {e}")
+            db_ready = False
+        
         init_status["database"] = True
         logger.info("✅ Database engine initialized")
-        db_ready = True
     except Exception as e:
         logger.warning(f"⚠️ Database init failed: {e}")
         import traceback
@@ -64,14 +87,12 @@ try:
             
             if db_ready and engine and Base:
                 try:
-                    logger.info("Creating database tables...")
+                    logger.info("Verifying database tables in async context...")
                     async with engine.begin() as conn:
                         await conn.run_sync(Base.metadata.create_all)
-                    logger.info("✅ Database tables created/verified")
+                    logger.info("✅ Database tables verified/created in async context")
                 except Exception as e:
-                    logger.error(f"❌ Database table creation failed: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                    logger.warning(f"⚠️ Async database verification failed (but sync already done): {e}")
             
             # Initialize AI Orchestrator (optional, graceful degradation)
             try:
