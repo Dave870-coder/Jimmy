@@ -71,6 +71,9 @@ Base = declarative_base()
 def _init_tables():
     """Initialize database tables at import time."""
     try:
+        # Import models FIRST to ensure they're registered with Base
+        from src.database import models  # noqa
+        
         from sqlalchemy import create_engine
         sync_url = settings.database_url
         if sync_url.startswith('sqlite+'):
