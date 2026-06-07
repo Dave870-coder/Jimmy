@@ -153,29 +153,45 @@ try:
         allow_headers=["*"],
     )
     
+    async def check_database_status():
+        """Check if database is initialized by querying for tables."""
+        try:
+            if engine:
+                from sqlalchemy import inspect
+                async with engine.connect() as conn:
+                    inspector = inspect(conn)
+                    tables = inspector.get_table_names()
+                    return "ready" if len(tables) > 0 else "not_initialized"
+        except:
+            return "error"
+        return "not_initialized"
+    
     @app.get("/")
     async def root():
+        db_status = await check_database_status()
         return {
             "status": "running",
             "message": "AI Bot Platform API",
             "timestamp": datetime.utcnow().isoformat(),
-            "database": "ready" if db_ready else "not_initialized",
+            "database": db_status,
         }
     
     @app.get("/health")
     async def health():
+        db_status = await check_database_status()
         return {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "database": "ready" if db_ready else "not_initialized",
+            "database": db_status,
         }
     
     @app.get("/ready")
     async def ready():
+        db_status = await check_database_status()
         return {
             "ready": True,
             "timestamp": datetime.utcnow().isoformat(),
-            "database": db_ready,
+            "database": db_status == "ready",
         }
     
     @app.get("/init-status")
