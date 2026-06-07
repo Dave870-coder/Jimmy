@@ -88,7 +88,7 @@ try:
                 logger.info("✅ All database models loaded")
                 
                 # Create tables synchronously after models are loaded
-                from sqlalchemy import create_engine
+                from sqlalchemy import create_engine, inspect
                 from src.database import Base as db_base
                 from src.config import get_settings
                 import pathlib
@@ -108,22 +108,43 @@ try:
                         logger.info(f"Ensuring database directory exists: {db_dir}")
                         pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
                         logger.info(f"✅ Database directory ready: {db_dir}")
+                        
+                        # Verify directory is writable
+                        if os.path.isdir(db_dir):
+                            logger.info(f"✅ Directory exists and is readable")
+                            if os.access(db_dir, os.W_OK):
+                                logger.info(f"✅ Directory is writable")
+                            else:
+                                logger.warning(f"⚠️ Directory is NOT writable - may cause database creation issues")
                 
-                logger.info(f"Creating database tables...")
+                logger.info(f"Creating sync engine for table creation...")
                 sync_engine = create_engine(sync_url, echo=False)
+                
+                # Log the tables that will be created
+                logger.info(f"Models to create: {[table.name for table in db_base.metadata.tables.values()]}")
+                
+                logger.info(f"Calling metadata.create_all()...")
                 db_base.metadata.create_all(sync_engine)
-                logger.info("✅ Database tables initialized")
+                logger.info("✅ metadata.create_all() completed")
+                
+                # Immediately verify what was created
+                inspector = inspect(sync_engine)
+                created_tables = inspector.get_table_names()
+                logger.info(f"Tables found after creation: {created_tables}")
+                logger.info(f"Total tables: {len(created_tables)}")
+                
                 sync_engine.dispose()
                 logger.info("✅ Database initialization complete")
                 
-                # Verify tables were created
+                # Final verification
                 if check_database_initialized():
                     logger.info("✅ Database verification passed - tables exist")
                 else:
-                    logger.warning("⚠️ Database verification failed - tables not found after creation")
+                    logger.error("❌ Database verification FAILED - tables not found after creation attempt")
+                    logger.error("This indicates metadata.create_all() did not create tables as expected")
                 
             except Exception as e:
-                logger.warning(f"⚠️ Model import or table creation: {e}")
+                logger.error(f"❌ Model import or table creation: {e}")
                 logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
             
             # Verify database with async context (for pool initialization)
@@ -348,6 +369,62 @@ try:
             "orchestrator": ai_status,
             "timestamp": datetime.utcnow().isoformat(),
         }
+    
+    # Diagnostic endpoint for database troubleshooting
+    @app.get("/health/diagnostics")
+    async def health_diagnostics():
+        """Detailed diagnostics for database and environment issues."""
+        from src.config import get_settings
+        from sqlalchemy import create_engine, inspect
+        import pathlib
+        
+        diagnostics = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "environment": {},
+            "database": {},
+            "filesystem": {},
+        }
+        
+        try:
+            settings = get_settings()
+            diagnostics["environment"]["app_env"] = settings.app_env
+            diagnostics["environment"]["database_url"] = settings.database_url
+            
+            # Parse database URL
+            sync_url = settings.database_url
+            if sync_url.startswith('sqlite+'):
+                sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+            diagnostics["database"]["parsed_url"] = sync_url
+            
+            # Extract path
+            if sync_url.startswith('sqlite:///'):
+                db_path = sync_url.replace('sqlite:///', '')
+                diagnostics["database"]["path"] = db_path
+                
+                db_dir = os.path.dirname(db_path)
+                diagnostics["filesystem"]["directory"] = db_dir
+                diagnostics["filesystem"]["dir_exists"] = os.path.isdir(db_dir)
+                diagnostics["filesystem"]["dir_readable"] = os.access(db_dir, os.R_OK) if os.path.isdir(db_dir) else False
+                diagnostics["filesystem"]["dir_writable"] = os.access(db_dir, os.W_OK) if os.path.isdir(db_dir) else False
+                diagnostics["filesystem"]["file_exists"] = os.path.isfile(db_path)
+                diagnostics["filesystem"]["file_readable"] = os.access(db_path, os.R_OK) if os.path.isfile(db_path) else False
+                
+                # Try to create engine and inspect tables
+                try:
+                    engine = create_engine(sync_url, echo=False)
+                    inspector = inspect(engine)
+                    tables = inspector.get_table_names()
+                    diagnostics["database"]["tables_found"] = len(tables)
+                    diagnostics["database"]["table_names"] = tables
+                    diagnostics["database"]["initialized"] = len(tables) > 0
+                    engine.dispose()
+                except Exception as e:
+                    diagnostics["database"]["error"] = str(e)
+                    diagnostics["database"]["initialized"] = False
+        except Exception as e:
+            diagnostics["error"] = str(e)
+        
+        return diagnostics
     
     logger.info("✅ App created successfully with all layers")
 
