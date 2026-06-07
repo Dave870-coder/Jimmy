@@ -31,6 +31,17 @@ python3 -c "import sqlalchemy; print(f'SQLAlchemy version: {sqlalchemy.__version
 
 echo ""
 echo "=========================================="
+echo "Initializing database..."
+echo "=========================================="
+python3 init_database.py
+if [ $? -eq 0 ]; then
+    echo "✅ Database initialization successful"
+else
+    echo "⚠️  Database initialization completed with warnings (will retry on first request)"
+fi
+
+echo ""
+echo "=========================================="
 echo "Build complete - ready for deployment"
 echo "=========================================="
 
