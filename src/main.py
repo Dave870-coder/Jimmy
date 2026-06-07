@@ -59,33 +59,43 @@ try:
                 
                 # Create tables synchronously after models are loaded
                 from sqlalchemy import create_engine
-                from src.database import Base
-                from src.config import settings
+                from src.database import Base as db_base
+                from src.config import get_settings
                 
-                sync_url = settings.database_url
+                current_settings = get_settings()
+                sync_url = current_settings.database_url
                 if sync_url.startswith('sqlite+'):
                     sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
                 
                 logger.info(f"Creating database tables at: {sync_url}")
                 sync_engine = create_engine(sync_url, echo=False)
-                Base.metadata.create_all(sync_engine)
+                db_base.metadata.create_all(sync_engine)
                 logger.info("✅ Database tables initialized")
                 sync_engine.dispose()
                 
+                # Mark database as ready after successful initialization
+                nonlocal db_ready
+                db_ready = True
+                logger.info("✅ Database marked as ready")
+                
             except Exception as e:
                 logger.warning(f"⚠️ Model import or table creation: {e}")
+                logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
             
             # Verify database with async context (for pool initialization)
-            if engine and Base:
-                try:
-                    logger.info("Initializing async database connection pool...")
-                    from sqlalchemy import inspect
-                    async with engine.connect() as conn:
-                        inspector = inspect(conn)
-                        tables = await conn.run_sync(lambda c: inspect(c).get_table_names())
-                        logger.info(f"✅ Database ready with {len(tables)} tables")
-                except Exception as e:
-                    logger.warning(f"⚠️ Async verify (non-critical): {e}")
+            try:
+                from src.database import engine as db_engine
+                from src.database import Base as db_base
+                if db_engine and db_base and db_ready:
+                    try:
+                        logger.info("Verifying database connection pool...")
+                        # Just test connection without inspection for async compatibility
+                        async with db_engine.begin() as conn:
+                            logger.info("✅ Database connection verified")
+                    except Exception as e:
+                        logger.debug(f"Async verify (non-critical): {e}")
+            except Exception as e:
+                logger.debug(f"Database engine verification: {e}")
             
             # Initialize AI Orchestrator (optional, graceful degradation)
             try:
@@ -97,20 +107,23 @@ try:
             
             # Configure Telegram webhook on hosted environments (optional)
             try:
-                if init_status["config"] and hasattr(settings, 'telegram_bot_token') and settings.telegram_bot_token:
-                    public_base_url = getattr(settings, 'public_base_url', None) or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
-                    if public_base_url:
-                        try:
-                            from src.bot.telegram.handler import get_telegram_bot
-                            telegram_bot = await get_telegram_bot()
-                            if telegram_bot:
-                                webhook_url = f"{public_base_url}/api/v1/telegram/webhook"
-                                await telegram_bot.set_webhook(webhook_url, getattr(settings, 'telegram_webhook_secret', ''))
-                                logger.info(f"✅ Telegram webhook configured: {webhook_url}")
-                        except Exception as e:
-                            logger.warning(f"⚠️ Failed to configure Telegram webhook: {e}")
-                    else:
-                        logger.info("ℹ️  No public base URL - Telegram webhook will not be configured")
+                if init_status["config"]:
+                    from src.config import get_settings
+                    current_settings = get_settings()
+                    if hasattr(current_settings, 'telegram_bot_token') and current_settings.telegram_bot_token:
+                        public_base_url = getattr(current_settings, 'public_base_url', None) or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+                        if public_base_url:
+                            try:
+                                from src.bot.telegram.handler import get_telegram_bot
+                                telegram_bot = await get_telegram_bot()
+                                if telegram_bot:
+                                    webhook_url = f"{public_base_url}/api/v1/telegram/webhook"
+                                    await telegram_bot.set_webhook(webhook_url, getattr(current_settings, 'telegram_webhook_secret', ''))
+                                    logger.info(f"✅ Telegram webhook configured: {webhook_url}")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Failed to configure Telegram webhook: {e}")
+                        else:
+                            logger.info("ℹ️  No public base URL - Telegram webhook will not be configured")
             except Exception as e:
                 logger.warning(f"⚠️ Telegram setup failed: {e}")
             
@@ -124,10 +137,13 @@ try:
         # Shutdown
         try:
             logger.info("🛑 APPLICATION SHUTTING DOWN")
-            if db_ready:
-                from src.database import engine
-                await engine.dispose()
-                logger.info("✅ Database cleanup completed")
+            try:
+                from src.database import engine as db_engine
+                if db_engine:
+                    await db_engine.dispose()
+                    logger.info("✅ Database cleanup completed")
+            except Exception as e:
+                logger.debug(f"Database disposal: {e}")
         except Exception as e:
             logger.error(f"❌ Shutdown error: {e}")
     
