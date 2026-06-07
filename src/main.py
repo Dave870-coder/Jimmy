@@ -91,18 +91,36 @@ try:
                 from sqlalchemy import create_engine
                 from src.database import Base as db_base
                 from src.config import get_settings
+                import pathlib
                 
                 current_settings = get_settings()
                 sync_url = current_settings.database_url
                 if sync_url.startswith('sqlite+'):
                     sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
                 
-                logger.info(f"Creating database tables at: {sync_url}")
+                logger.info(f"Database URL: {sync_url}")
+                
+                # Extract path from sqlite:// URL and ensure directory exists
+                if sync_url.startswith('sqlite:///'):
+                    db_path = sync_url.replace('sqlite:///', '')
+                    db_dir = os.path.dirname(db_path)
+                    if db_dir:
+                        logger.info(f"Ensuring database directory exists: {db_dir}")
+                        pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
+                        logger.info(f"✅ Database directory ready: {db_dir}")
+                
+                logger.info(f"Creating database tables...")
                 sync_engine = create_engine(sync_url, echo=False)
                 db_base.metadata.create_all(sync_engine)
                 logger.info("✅ Database tables initialized")
                 sync_engine.dispose()
                 logger.info("✅ Database initialization complete")
+                
+                # Verify tables were created
+                if check_database_initialized():
+                    logger.info("✅ Database verification passed - tables exist")
+                else:
+                    logger.warning("⚠️ Database verification failed - tables not found after creation")
                 
             except Exception as e:
                 logger.warning(f"⚠️ Model import or table creation: {e}")
