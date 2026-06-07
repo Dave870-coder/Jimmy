@@ -2,6 +2,19 @@
 
 A production-ready AI Bot Platform powered by **Google AI Studio (Gemini)**, integrated with WhatsApp and Telegram, featuring autonomous agents, memory systems, and intelligent task automation.
 
+## 👤 Author
+
+**Onuoha Ikechukwu David**
+- Software Engineering Student
+- Babcock University
+- [View Full Author Details](AUTHOR.md)
+
+## 📊 Dashboard
+
+![Jimmy Bot Dashboard](docs/dashboard-screenshot.png)
+
+The dashboard provides real-time monitoring of bot activity, active users, message counts, and integration setup for Telegram and WhatsApp.
+
 ## 🚀 Deploy Now (FREE!)
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Dave870-coder/Jimmy)
