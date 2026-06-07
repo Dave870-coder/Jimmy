@@ -31,13 +31,27 @@ try:
     
     # Initialize database (best effort)
     db_ready = False
+    engine = None
+    Base = None
     try:
+        from pathlib import Path
         from src.database import engine, Base
+        
+        # Ensure database directory exists
+        if hasattr(settings, 'database_url') and settings.database_url.startswith('sqlite:'):
+            db_path_str = settings.database_url.replace('sqlite:///', '').replace('sqlite:', '').strip('/')
+            if db_path_str and db_path_str != ':memory:':
+                db_path = Path(db_path_str)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                logger.info(f"✅ Database directory ensured: {db_path.parent}")
+        
         init_status["database"] = True
         logger.info("✅ Database engine initialized")
         db_ready = True
     except Exception as e:
         logger.warning(f"⚠️ Database init failed: {e}")
+        import traceback
+        logger.warning(traceback.format_exc())
     
     # Define lifespan for startup/shutdown (includes all layers)
     @asynccontextmanager
@@ -48,14 +62,16 @@ try:
             logger.info("🚀 APPLICATION STARTING UP")
             logger.info("=" * 60)
             
-            if db_ready:
+            if db_ready and engine and Base:
                 try:
-                    from src.database import engine, Base
+                    logger.info("Creating database tables...")
                     async with engine.begin() as conn:
                         await conn.run_sync(Base.metadata.create_all)
                     logger.info("✅ Database tables created/verified")
                 except Exception as e:
-                    logger.warning(f"⚠️ Database table creation failed: {e}")
+                    logger.error(f"❌ Database table creation failed: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
             
             # Initialize AI Orchestrator (optional, graceful degradation)
             try:
