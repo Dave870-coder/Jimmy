@@ -39,6 +39,58 @@ def check_database_initialized() -> bool:
         logger.error(f"Stack trace: {traceback.format_exc()}")
         return False
 
+def ensure_database_initialized() -> bool:
+    """Ensure database is initialized - create tables if needed (lazy initialization)."""
+    try:
+        # First check if already initialized
+        if check_database_initialized():
+            logger.info("✅ Database already initialized")
+            return True
+        
+        logger.warning("⚠️ Database not initialized - attempting to create tables now")
+        
+        from sqlalchemy import create_engine
+        from src.database import Base as db_base
+        from src.config import get_settings
+        import pathlib
+        
+        # Ensure models are loaded
+        import src.database.models  # noqa
+        logger.info("✅ Models loaded for lazy initialization")
+        
+        current_settings = get_settings()
+        sync_url = current_settings.database_url
+        if sync_url.startswith('sqlite+'):
+            sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+        
+        # Create directory if needed
+        if sync_url.startswith('sqlite:///'):
+            db_path = sync_url.replace('sqlite:///', '')
+            db_dir = os.path.dirname(db_path)
+            if db_dir:
+                pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
+                logger.info(f"✅ Database directory ensured: {db_dir}")
+        
+        # Create tables
+        logger.info(f"Creating tables via lazy initialization at: {sync_url}")
+        sync_engine = create_engine(sync_url, echo=False)
+        db_base.metadata.create_all(sync_engine)
+        sync_engine.dispose()
+        logger.info("✅ Tables created via lazy initialization")
+        
+        # Verify
+        if check_database_initialized():
+            logger.info("✅ Lazy initialization succeeded")
+            return True
+        else:
+            logger.error("❌ Lazy initialization failed - tables still not found")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Lazy initialization failed: {e}")
+        logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
+        return False
+
 # Track initialization status
 init_status = {
     "fastapi": False,
@@ -229,8 +281,12 @@ try:
     )
     
     async def check_database_status():
-        """Check if database is initialized."""
-        # Use synchronous check - look at actual tables on disk
+        """Check if database is initialized, with lazy initialization fallback."""
+        # First, try lazy initialization if not already initialized
+        # This handles cases where lifespan startup didn't run or failed
+        ensure_database_initialized()
+        
+        # Now check if initialized
         if check_database_initialized():
             return "ready"
         return "not_initialized"
@@ -287,6 +343,9 @@ try:
     @app.get("/status")
     async def status_endpoint():
         """Comprehensive status endpoint."""
+        # Try lazy initialization
+        ensure_database_initialized()
+        
         return {
             "bot_status": "running",
             "environment": init_status["config"],
@@ -353,6 +412,9 @@ try:
     @app.get("/health/detailed")
     async def health_detailed():
         """Detailed health endpoint with orchestrator status."""
+        # Try lazy initialization
+        ensure_database_initialized()
+        
         # Try to get AI status from startup
         ai_status = "checking"
         try:
@@ -374,6 +436,9 @@ try:
     @app.get("/health/diagnostics")
     async def health_diagnostics():
         """Detailed diagnostics for database and environment issues."""
+        # Try lazy initialization first
+        ensure_database_initialized()
+        
         from src.config import get_settings
         from sqlalchemy import create_engine, inspect
         import pathlib
