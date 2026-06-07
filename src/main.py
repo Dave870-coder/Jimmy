@@ -605,3 +605,5 @@ try:
 except Exception as e:
     logger.error(f"❌ Failed to create app: {e}", exc_info=True)
     raise
+
+# Force rebuild 2026-06-07 14:44:36
