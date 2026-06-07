@@ -13,6 +13,20 @@ from src.config import get_settings
 
 settings = get_settings()
 
+
+def normalize_database_url(database_url: str) -> str:
+    """Convert the configured DB URL to its async driver format."""
+    normalized = database_url.strip()
+    lower = normalized.lower()
+
+    if lower.startswith("sqlite://"):
+        return "sqlite+aiosqlite://" + normalized[len("sqlite://") :]
+    if lower.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + normalized[len("postgresql://") :]
+
+    return normalized
+
+
 # Handle both SQLite and PostgreSQL
 database_url = settings.database_url
 
@@ -25,7 +39,7 @@ if database_url.startswith("sqlite:///"):
 
 if database_url.startswith("sqlite://"):
     # SQLite with aiosqlite for async support
-    database_url = database_url.replace("sqlite://", "sqlite+aiosqlite:///")
+    database_url = normalize_database_url(database_url)
     engine = create_async_engine(
         database_url,
         echo=settings.database_echo,
@@ -34,7 +48,7 @@ if database_url.startswith("sqlite://"):
     )
 else:
     # PostgreSQL - convert to async
-    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+    database_url = normalize_database_url(database_url)
     engine = create_async_engine(
         database_url,
         echo=settings.database_echo,

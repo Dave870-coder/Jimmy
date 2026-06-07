@@ -3,11 +3,13 @@
 from functools import lru_cache
 from typing import Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings."""
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
     # Application
     app_name: str = "AI Bot Platform"
@@ -109,7 +111,12 @@ class Settings(BaseSettings):
     telegram_timeout: int = 30
 
     # Security
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
     rate_limit_requests: int = 100
     rate_limit_period: int = 3600
 
@@ -127,11 +134,6 @@ class Settings(BaseSettings):
     gcp_project_id: Optional[str] = None
     gcp_credentials_json: Optional[str] = None
 
-    class Config:
-        """Configuration class."""
-
-        env_file = ".env"
-        case_sensitive = False
 
 
 @lru_cache()

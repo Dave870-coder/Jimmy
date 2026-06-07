@@ -5,7 +5,7 @@ services:
     pythonVersion: 3.12
     region: oregon
     plan: free
-    buildCommand: pip install --no-cache-dir -e .
+    buildCommand: bash ./build.sh
     startCommand: python run_bot.py
     healthCheckPath: /health
     disk:

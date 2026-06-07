@@ -21,7 +21,7 @@ except ImportError:
     ContextTypes = None
 
 from src.config import get_settings
-from src.ai.orchestrator import agent_orchestrator
+from src.ai.orchestrator import get_agent_orchestrator
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -173,8 +173,14 @@ I'm powered by Google AI and ready to assist you.
         await update.message.chat.send_action("typing")
         
         try:
-            # Process through AI agent (Google AI)
-            response = await agent_orchestrator.process(user_id, message_text)
+            orchestrator = get_agent_orchestrator()
+            if orchestrator is None:
+                await update.message.reply_text(
+                    "⚠️ The AI orchestrator is unavailable right now. Please verify GOOGLE_API_KEY and restart the app."
+                )
+                return
+
+            response = await orchestrator.process(user_id, message_text)
             
             # Split long responses (Telegram limit is 4096)
             if len(response) > 4096:
