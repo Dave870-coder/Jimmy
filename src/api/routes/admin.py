@@ -19,6 +19,16 @@ ENV_FILE = ROOT_DIR / ".env"
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
+def _ensure_env_file() -> Path:
+    """Create the project env file if needed and lock it down for local use."""
+    ENV_FILE.touch(exist_ok=True)
+    try:
+        os.chmod(ENV_FILE, 0o600)
+    except OSError:
+        pass
+    return ENV_FILE
+
+
 @router.get("/users")
 async def get_users(limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
     """Get a lightweight list of users for the dashboard."""
@@ -62,12 +72,13 @@ async def get_analytics(start_date: str = None, end_date: str = None, db: AsyncS
 @router.get("/integrations")
 async def get_integrations():
     """Get integration and connection setup details for the dashboard."""
-    public_base_url = settings.public_base_url.rstrip("/") if settings.public_base_url else None
+    current_settings = get_settings()
+    public_base_url = current_settings.public_base_url.rstrip("/") if current_settings.public_base_url else None
     webhook_url = f"{public_base_url}/api/v1/telegram/webhook" if public_base_url else None
 
     return {
         "telegram_webhook_url": webhook_url,
-        "telegram_configured": bool(settings.telegram_bot_token and settings.telegram_webhook_secret and webhook_url),
+        "telegram_configured": bool(current_settings.telegram_bot_token and current_settings.telegram_webhook_secret and webhook_url),
         "whatsapp_connection_endpoint": "/api/v1/whatsapp-qr/start-connection",
         "whatsapp_status_endpoint": "/api/v1/whatsapp-qr/status/{connection_id}",
         "supported_integrations": ["telegram", "whatsapp"],
@@ -80,13 +91,16 @@ async def save_settings(payload: dict):
     mapping = {
         "telegram_bot_token": "TELEGRAM_BOT_TOKEN",
         "google_api_key": "GOOGLE_API_KEY",
+        "openai_api_key": "OPENAI_API_KEY",
+        "whatsapp_access_token": "WHATSAPP_ACCESS_TOKEN",
         "telegram_webhook_secret": "TELEGRAM_WEBHOOK_SECRET",
         "public_base_url": "PUBLIC_BASE_URL",
+        "database_url": "DATABASE_URL",
     }
 
     saved = []
     try:
-        ENV_FILE.touch(exist_ok=True)
+        _ensure_env_file()
 
         for key, env_key in mapping.items():
             if key not in payload:
@@ -103,10 +117,12 @@ async def save_settings(payload: dict):
             set_key(str(ENV_FILE), env_key, normalized, quote_mode="never")
             saved.append(env_key)
 
+        get_settings.cache_clear()
+
         return {
             "ok": True,
             "saved": saved,
-            "message": "Settings saved. Re-deploy or restart the app to apply production environment values.",
+            "message": "Secure settings saved to .env and loaded into the current runtime.",
         }
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc

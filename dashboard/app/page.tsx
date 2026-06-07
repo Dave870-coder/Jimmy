@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000');
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/$/, '');
+const apiUrl = (path: string) => `${API_BASE}${path}`;
 
 type Analytics = {
   active_users: number;
@@ -38,8 +39,11 @@ export default function Home() {
   const [settingsForm, setSettingsForm] = useState({
     telegram_bot_token: '',
     google_api_key: '',
+    openai_api_key: '',
+    whatsapp_access_token: '',
     telegram_webhook_secret: '',
     public_base_url: '',
+    database_url: '',
   });
   const [settingsStatus, setSettingsStatus] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
@@ -50,9 +54,9 @@ export default function Home() {
     async function loadDashboard() {
       try {
         const [analyticsRes, usersRes, integrationsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/admin/analytics`),
-          fetch(`${API_BASE}/api/v1/admin/users?limit=6`),
-          fetch(`${API_BASE}/api/v1/admin/integrations`),
+          fetch(apiUrl('/api/v1/admin/analytics')),
+          fetch(apiUrl('/api/v1/admin/users?limit=6')),
+          fetch(apiUrl('/api/v1/admin/integrations')),
         ]);
 
         const analyticsData = analyticsRes.ok ? await analyticsRes.json() : null;
@@ -86,7 +90,7 @@ export default function Home() {
     async function pollWhatsappStatus() {
       if (!whatsappState.connectionId) return;
       try {
-        const statusRes = await fetch(`${API_BASE}/api/v1/whatsapp-qr/status/${whatsappState.connectionId}`);
+        const statusRes = await fetch(apiUrl(`/api/v1/whatsapp-qr/status/${whatsappState.connectionId}`));
         if (!statusRes.ok) return;
         const statusData = await statusRes.json();
         const connectionStatus = statusData.connection_status;
@@ -117,7 +121,7 @@ export default function Home() {
     setWhatsappState({ status: 'starting', message: 'Generating QR code…' });
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/whatsapp-qr/start-connection`, {
+      const response = await fetch(apiUrl('/api/v1/whatsapp-qr/start-connection'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Jimmy Dashboard' }),
@@ -148,7 +152,7 @@ export default function Home() {
     setSettingsStatus('');
 
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/settings`, {
+      const response = await fetch(apiUrl('/api/v1/admin/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settingsForm),
@@ -160,7 +164,16 @@ export default function Home() {
       }
 
       setSettingsStatus(data.message || 'Settings saved successfully.');
-      setSettingsForm((prev) => ({ ...prev, telegram_bot_token: '', google_api_key: '', telegram_webhook_secret: '', public_base_url: '' }));
+      setSettingsForm((prev) => ({
+        ...prev,
+        telegram_bot_token: '',
+        google_api_key: '',
+        openai_api_key: '',
+        whatsapp_access_token: '',
+        telegram_webhook_secret: '',
+        public_base_url: '',
+        database_url: '',
+      }));
     } catch (error) {
       setSettingsStatus(String(error));
     } finally {
@@ -207,7 +220,7 @@ export default function Home() {
           <article className="rounded-3xl border border-white/10 bg-white/8 p-6 shadow-2xl shadow-slate-950/25 backdrop-blur-xl">
             <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">Production setup</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">Connect Telegram and Google AI Studio</h2>
-            <p className="mt-3 text-slate-300">Save the keys here for the current runtime, then set the same values in your Render dashboard for persistent production deployment.</p>
+            <p className="mt-3 text-slate-300">Store your Telegram, Google AI Studio, OpenAI, WhatsApp, and database secrets in the project .env file here. These values are persisted securely and used by the live bot runtime.</p>
 
             <form onSubmit={saveSettings} className="mt-6 space-y-4">
               <label className="block text-sm text-slate-200">
@@ -231,6 +244,26 @@ export default function Home() {
                 />
               </label>
               <label className="block text-sm text-slate-200">
+                OpenAI API key
+                <input
+                  type="password"
+                  value={settingsForm.openai_api_key}
+                  onChange={(event) => setSettingsForm((prev) => ({ ...prev, openai_api_key: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-400"
+                  placeholder="sk-..."
+                />
+              </label>
+              <label className="block text-sm text-slate-200">
+                WhatsApp access token
+                <input
+                  type="password"
+                  value={settingsForm.whatsapp_access_token}
+                  onChange={(event) => setSettingsForm((prev) => ({ ...prev, whatsapp_access_token: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-400"
+                  placeholder="WhatsApp token"
+                />
+              </label>
+              <label className="block text-sm text-slate-200">
                 Telegram webhook secret
                 <input
                   type="password"
@@ -248,6 +281,16 @@ export default function Home() {
                   onChange={(event) => setSettingsForm((prev) => ({ ...prev, public_base_url: event.target.value }))}
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-400"
                   placeholder="https://your-app.onrender.com"
+                />
+              </label>
+              <label className="block text-sm text-slate-200">
+                Database URL
+                <input
+                  type="password"
+                  value={settingsForm.database_url}
+                  onChange={(event) => setSettingsForm((prev) => ({ ...prev, database_url: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none ring-0 placeholder:text-slate-400"
+                  placeholder="sqlite:///./data/bot.db or postgresql://..."
                 />
               </label>
 
@@ -338,12 +381,12 @@ export default function Home() {
 
               <div className="mt-6 rounded-3xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-300">
                 <p className="font-semibold text-white">Telegram webhook setup</p>
-                <p className="mt-2">Use your public API hostname with the Telegram webhook endpoint below.</p>
-                <p className="mt-3 break-all text-slate-200">{telegramInfo.telegram_webhook_url || `${API_BASE}/api/v1/telegram/webhook`}</p>
+                <p className="mt-2">Use your secure public hostname with the Telegram webhook endpoint below. Google AI Studio powers the live responses, and the .env-backed credentials keep your tokens and keys in one protected place.</p>
+                <p className="mt-3 break-all text-slate-200">{telegramInfo.telegram_webhook_url || apiUrl('/api/v1/telegram/webhook')}</p>
                 <p className="mt-3 text-xs text-slate-500">
                   {telegramInfo.telegram_configured
-                    ? 'Telegram is configured with a webhook and secret.'
-                    : 'Configure TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, and PUBLIC_BASE_URL for production.'}
+                    ? 'Telegram is configured with a webhook and secret, and the bot is ready to accept chat updates.'
+                    : 'Configure TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, GOOGLE_API_KEY, and PUBLIC_BASE_URL for production.'}
                 </p>
               </div>
             </div>

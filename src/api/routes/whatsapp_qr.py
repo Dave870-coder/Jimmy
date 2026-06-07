@@ -90,6 +90,7 @@ async def start_connection(request: StartConnectionRequest, http_request: Reques
             "status": "success",
             "connection_id": connection_id,
             "connect_url": connect_url,
+            "qr_code_data": f"data:image/png;base64,{qr_code}" if qr_code else None,
             "message": "Scan the QR code with WhatsApp to connect",
             "has_qr_code": qr_code is not None,
             "has_barcode": barcode_data is not None,

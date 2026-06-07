@@ -7,7 +7,7 @@ name = "ai-bot-platform"
 version = "1.0.0"
 description = "Production-ready AI Bot Platform with WhatsApp and Telegram integration"
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 license = {text = "MIT"}
 authors = [
     {name = "AI Bot Team", email = "team@aibot.com"}

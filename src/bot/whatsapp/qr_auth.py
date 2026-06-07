@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+import shutil
 import qrcode
 import time
 from io import BytesIO
@@ -75,70 +76,83 @@ class WhatsAppQRCodeAuth:
         self.connection_callbacks.append(callback)
 
     async def generate_qr_code(self, session_id: str) -> str:
-        """Generate QR code for WhatsApp Web connection."""
+        """Generate a QR code for the session using Chrome when possible, otherwise a static fallback."""
         try:
             logger.info(f"🔐 Generating QR code for session {session_id}...")
-            
-            # Create or get session
+
             if session_id not in self.sessions:
                 self.sessions[session_id] = QRCodeSession(session_id=session_id)
-            
+
             session = self.sessions[session_id]
-            
-            # Initialize Selenium WebDriver with headless Chrome
-            if webdriver is None:
-                session.error_message = "Selenium not installed. Install with: pip install selenium"
-                session.status = "failed"
-                logger.error(f"❌ Selenium not installed for session {session_id}")
-                return None
-            
-            # Setup Chrome options
-            chrome_options = Options()
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-extensions")
-            chrome_options.add_argument("--disable-plugins")
-            chrome_options.add_argument("--disable-gpu")
-            # Use headless mode for server environment
-            chrome_options.add_argument("--headless=new")
-            
-            # Initialize WebDriver
-            logger.info(f"📱 Starting Chrome for WhatsApp Web session {session_id}...")
-            self.driver = webdriver.Chrome(options=chrome_options)
-            
-            # Navigate to WhatsApp Web
-            self.driver.get("https://web.whatsapp.com")
-            
-            session.status = "waiting"
-            logger.info(f"🌐 WhatsApp Web loaded, waiting for QR code...")
-            
-            # Wait for QR code to appear
-            qr_wait_time = 30  # 30 seconds timeout
-            start_time = time.time()
-            
-            while time.time() - start_time < qr_wait_time:
+
+            fallback_data = f"jimmy://whatsapp-qr/{session_id}"
+
+            browser_available = any(
+                shutil.which(name)
+                for name in ("google-chrome", "chromium", "chromium-browser", "chrome.exe", "chromedriver")
+            )
+
+            # Prefer the real browser flow only when a Chrome/Chromedriver runtime is actually available.
+            if (
+                browser_available
+                and webdriver is not None
+                and Options is not None
+                and By is not None
+                and WebDriverWait is not None
+            ):
                 try:
-                    # Find QR code image element
-                    qr_elements = self.driver.find_elements(By.CSS_SELECTOR, "canvas")
-                    
-                    if qr_elements:
-                        # Extract QR code from canvas
-                        qr_code_image = qr_elements[0].screenshot_as_png
-                        qr_code_base64 = base64.b64encode(qr_code_image).decode('utf-8')
-                        
-                        session.qr_code_data = qr_code_base64
-                        session.status = "ready"
-                        
-                        logger.info(f"✅ QR code generated for session {session_id}")
-                        return qr_code_base64
-                    
+                    chrome_options = Options()
+                    chrome_options.add_argument("--no-sandbox")
+                    chrome_options.add_argument("--disable-dev-shm-usage")
+                    chrome_options.add_argument("--disable-extensions")
+                    chrome_options.add_argument("--disable-plugins")
+                    chrome_options.add_argument("--disable-gpu")
+                    chrome_options.add_argument("--headless=new")
+
+                    logger.info(f"📱 Starting Chrome for WhatsApp Web session {session_id}...")
+                    self.driver = webdriver.Chrome(options=chrome_options)
+                    self.driver.get("https://web.whatsapp.com")
+
+                    session.status = "waiting"
+                    logger.info(f"🌐 WhatsApp Web loaded, waiting for QR code...")
+
+                    qr_wait_time = 30
+                    start_time = time.time()
+                    while time.time() - start_time < qr_wait_time:
+                        try:
+                            qr_elements = self.driver.find_elements(By.CSS_SELECTOR, "canvas")
+                            if qr_elements:
+                                qr_code_image = qr_elements[0].screenshot_as_png
+                                session.qr_code_data = base64.b64encode(qr_code_image).decode('utf-8')
+                                session.status = "ready"
+                                logger.info(f"✅ QR code generated for session {session_id}")
+                                return session.qr_code_data
+                        except Exception as e:
+                            logger.debug(f"Waiting for QR code: {e}")
+                        await asyncio.sleep(1)
+
+                    session.error_message = "QR code generation timeout"
+                    session.status = "failed"
+                    logger.error(f"❌ QR code timeout for session {session_id}")
+                    return None
                 except Exception as e:
-                    logger.debug(f"Waiting for QR code: {e}")
-                    await asyncio.sleep(1)
-            
-            session.error_message = "QR code generation timeout"
+                    logger.warning(f"⚠️ Browser QR path failed for session {session_id}: {e}; using static fallback")
+                    self.driver = None
+                    if session.status != "ready":
+                        session.error_message = str(e)
+
+            # Static fallback for environments without a working Chrome/WebDriver stack.
+            qr_base64 = self.generate_static_qr_code(fallback_data)
+            if qr_base64:
+                session.qr_code_data = qr_base64
+                session.status = "ready"
+                session.error_message = None
+                logger.info(f"✅ Static QR fallback generated for session {session_id}")
+                return qr_base64
+
+            session.error_message = "QR code generation unavailable"
             session.status = "failed"
-            logger.error(f"❌ QR code timeout for session {session_id}")
+            logger.error(f"❌ QR code generation unavailable for session {session_id}")
             return None
             
         except Exception as e:

@@ -110,7 +110,7 @@ try:
     # Add CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.cors_origins if init_status["config"] else ["http://localhost:3000"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -176,7 +176,7 @@ try:
     # Layer 3: Try to add messages route (safest route to start with)
     try:
         from src.api.routes.messages import router as messages_router
-        app.include_router(messages_router, prefix="/api/v1/messages", tags=["messages"])
+        app.include_router(messages_router, tags=["messages"])
         logger.info("✅ Messages route loaded")
     except Exception as e:
         logger.warning(f"⚠️ Messages route failed: {e}")
@@ -184,7 +184,7 @@ try:
     # Layer 4: Add Telegram route
     try:
         from src.api.routes.telegram import router as telegram_router
-        app.include_router(telegram_router, prefix="/api/v1/telegram", tags=["telegram"])
+        app.include_router(telegram_router, tags=["telegram"])
         logger.info("✅ Telegram route loaded")
     except Exception as e:
         logger.warning(f"⚠️ Telegram route failed: {e}")
@@ -192,32 +192,32 @@ try:
     # Layer 5: Add WhatsApp routes
     try:
         from src.api.routes.whatsapp import router as whatsapp_router
-        app.include_router(whatsapp_router, prefix="/api/v1/whatsapp", tags=["whatsapp"])
+        app.include_router(whatsapp_router, tags=["whatsapp"])
         logger.info("✅ WhatsApp route loaded")
     except Exception as e:
         logger.warning(f"⚠️ WhatsApp route failed: {e}")
     
     try:
         from src.api.routes.whatsapp_qr import router as whatsapp_qr_router
-        app.include_router(whatsapp_qr_router, prefix="/api/v1/whatsapp-qr", tags=["whatsapp-qr"])
+        app.include_router(whatsapp_qr_router, tags=["whatsapp-qr"])
         logger.info("✅ WhatsApp QR route loaded")
     except Exception as e:
         logger.warning(f"⚠️ WhatsApp QR route failed: {e}")
     
     # Layer 6: Add optional routes (auth, admin, memory, workflows)
     optional_routes = [
-        ("auth", "/api/v1/auth", "auth"),
-        ("admin", "/api/v1/admin", "admin"),
-        ("memory", "/api/v1/memory", "memory"),
-        ("workflows", "/api/v1/workflows", "workflows"),
+        ("auth", "auth"),
+        ("admin", "admin"),
+        ("memory", "memory"),
+        ("workflows", "workflows"),
     ]
-    
-    for route_name, prefix, tag in optional_routes:
+
+    for route_name, tag in optional_routes:
         try:
             module = __import__(f"src.api.routes.{route_name}", fromlist=[route_name])
             router = getattr(module, "router", None)
             if router:
-                app.include_router(router, prefix=prefix, tags=[tag])
+                app.include_router(router, tags=[tag])
                 logger.info(f"✅ {route_name.capitalize()} route loaded")
         except Exception as e:
             logger.warning(f"⚠️ {route_name.capitalize()} route failed: {e}")
