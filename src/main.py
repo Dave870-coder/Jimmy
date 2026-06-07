@@ -49,45 +49,86 @@ def ensure_database_initialized() -> bool:
         
         logger.warning("⚠️ Database not initialized - attempting to create tables now")
         
-        from sqlalchemy import create_engine
+        from sqlalchemy import create_engine, inspect
         from src.database import Base as db_base
         from src.config import get_settings
         import pathlib
         
         # Ensure models are loaded
-        import src.database.models  # noqa
-        logger.info("✅ Models loaded for lazy initialization")
+        try:
+            import src.database.models  # noqa
+            logger.info("✅ Models loaded for lazy initialization")
+        except Exception as e:
+            logger.error(f"❌ Failed to load models: {e}")
+            return False
         
         current_settings = get_settings()
         sync_url = current_settings.database_url
+        logger.info(f"Original database_url: {sync_url}")
+        
         if sync_url.startswith('sqlite+'):
             sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
         
+        logger.info(f"Converted sync_url: {sync_url}")
+        
         # Create directory if needed
+        db_path = None
         if sync_url.startswith('sqlite:///'):
             db_path = sync_url.replace('sqlite:///', '')
             db_dir = os.path.dirname(db_path)
+            logger.info(f"Database path: {db_path}")
+            logger.info(f"Database dir: {db_dir}")
+            
             if db_dir:
-                pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
-                logger.info(f"✅ Database directory ensured: {db_dir}")
+                try:
+                    pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
+                    logger.info(f"✅ Database directory ensured: {db_dir}")
+                    logger.info(f"  - Is directory: {os.path.isdir(db_dir)}")
+                    logger.info(f"  - Is readable: {os.access(db_dir, os.R_OK)}")
+                    logger.info(f"  - Is writable: {os.access(db_dir, os.W_OK)}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to create database directory: {e}")
+                    return False
         
         # Create tables
-        logger.info(f"Creating tables via lazy initialization at: {sync_url}")
-        sync_engine = create_engine(sync_url, echo=False)
-        db_base.metadata.create_all(sync_engine)
-        sync_engine.dispose()
-        logger.info("✅ Tables created via lazy initialization")
+        logger.info(f"Creating tables via lazy initialization...")
+        try:
+            sync_engine = create_engine(sync_url, echo=False)
+            logger.info(f"Sync engine created successfully")
+            
+            # Log metadata
+            table_names = [t.name for t in db_base.metadata.tables.values()]
+            logger.info(f"Tables to create: {table_names}")
+            
+            db_base.metadata.create_all(sync_engine)
+            logger.info("✅ metadata.create_all() completed")
+            
+            # Verify immediately
+            inspector = inspect(sync_engine)
+            created_tables = inspector.get_table_names()
+            logger.info(f"Tables actually created: {created_tables}")
+            logger.info(f"Total tables: {len(created_tables)}")
+            
+            sync_engine.dispose()
+            logger.info("✅ Engine disposed")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed during table creation: {e}")
+            logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
+            return False
         
-        # Verify
+        logger.info("✅ Lazy initialization tables created")
+        
+        # Verify one final time
         if check_database_initialized():
-            logger.info("✅ Lazy initialization succeeded")
+            logger.info("✅ Lazy initialization verified - tables exist")
             return True
         else:
-            logger.error("❌ Lazy initialization failed - tables still not found")
+            logger.error("❌ Lazy initialization failed - tables still not found after creation")
             return False
             
     except Exception as e:
-        logger.error(f"❌ Lazy initialization failed: {e}")
+        logger.error(f"❌ Lazy initialization exception: {e}")
         logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
         return False
 
