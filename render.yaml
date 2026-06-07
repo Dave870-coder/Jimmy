@@ -7,6 +7,7 @@ services:
     plan: free
     buildCommand: bash ./build.sh
     startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    # Updated: 2026-06-07 - Force redeploy to pick up /health/diagnostics endpoint
     healthCheckPath: /health
     disk:
       name: jimmy-data
