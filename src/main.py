@@ -8,6 +8,29 @@ from contextlib import asynccontextmanager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Helper function to check if database is initialized
+def check_database_initialized() -> bool:
+    """Check if database tables have been created."""
+    try:
+        from sqlalchemy import create_engine, inspect
+        from src.config import get_settings
+        
+        settings = get_settings()
+        sync_url = settings.database_url
+        if sync_url.startswith('sqlite+'):
+            sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+        
+        engine = create_engine(sync_url, echo=False)
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        engine.dispose()
+        
+        # If we have any tables, database is initialized
+        return len(tables) > 0
+    except Exception as e:
+        logger.debug(f"Database check failed: {e}")
+        return False
+
 # Track initialization status
 init_status = {
     "fastapi": False,
@@ -30,7 +53,6 @@ try:
         logger.warning(f"⚠️ Config init failed: {e}")
     
     # Initialize database (best effort)
-    db_ready = False
     engine = None
     Base = None
     try:
@@ -72,11 +94,7 @@ try:
                 db_base.metadata.create_all(sync_engine)
                 logger.info("✅ Database tables initialized")
                 sync_engine.dispose()
-                
-                # Mark database as ready after successful initialization
-                nonlocal db_ready
-                db_ready = True
-                logger.info("✅ Database marked as ready")
+                logger.info("✅ Database initialization complete")
                 
             except Exception as e:
                 logger.warning(f"⚠️ Model import or table creation: {e}")
@@ -164,15 +182,9 @@ try:
     
     async def check_database_status():
         """Check if database is initialized."""
-        try:
-            if engine:
-                # Try to get a connection and check if it works
-                async with engine.connect() as conn:
-                    await conn.execute("SELECT 1")
-                    # If we got here, database is ready
-                    return "ready"
-        except:
-            pass
+        # Use synchronous check - look at actual tables on disk
+        if check_database_initialized():
+            return "ready"
         return "not_initialized"
     
     @app.get("/")
@@ -232,7 +244,7 @@ try:
             "environment": init_status["config"],
             "version": "1.0.0",
             "timestamp": datetime.utcnow().isoformat(),
-            "database": "ready" if db_ready else "not_initialized",
+            "database": "ready" if check_database_initialized() else "not_initialized",
         }
     
     # Layer 3: Try to add messages route (safest route to start with)
