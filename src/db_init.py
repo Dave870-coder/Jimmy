@@ -150,6 +150,8 @@ def check_db_status() -> str:
         if sync_url.startswith('sqlite+'):
             sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
         
+        logger.info(f"📊 Checking database status at: {sync_url}")
+        
         engine = create_engine(sync_url, echo=False, connect_args={"timeout": 5})
         
         # Try a simple query to verify connection
@@ -158,25 +160,99 @@ def check_db_status() -> str:
             inspector = inspect(engine)
             tables = inspector.get_table_names()
             
+            logger.info(f"📋 Found {len(tables)} tables: {tables}")
+            
             if len(tables) > 5:  # We should have at least 5 tables
+                logger.info(f"✅ Database ready with {len(tables)} tables")
+                engine.dispose()
                 return "ready"
             elif len(tables) > 0:
-                logger.warning(f"⚠️ Only {len(tables)} tables found, trying to initialize")
+                logger.warning(f"⚠️ Only {len(tables)} tables found, attempting initialization")
                 engine.dispose()
-                success, _ = init_db_safe()
-                return "ready" if success else "not_initialized"
+                success, msg = init_db_safe()
+                result = "ready" if success else "not_initialized"
+                logger.info(f"After init attempt: {result} ({msg})")
+                return result
             else:
-                logger.warning("No tables found, initializing...")
+                logger.warning("❌ No tables found, attempting full initialization")
                 engine.dispose()
-                success, _ = init_db_safe()
-                return "ready" if success else "not_initialized"
+                success, msg = init_db_safe()
+                result = "ready" if success else "not_initialized"
+                logger.info(f"After init attempt: {result} ({msg})")
+                return result
                 
     except Exception as e:
-        logger.debug(f"Database check failed: {e}")
-        return "not_initialized"
+        logger.error(f"❌ Database check exception: {e}", exc_info=True)
+        # Last resort - try to initialize
+        try:
+            logger.warning("Attempting emergency initialization from exception handler...")
+            success, msg = init_db_safe()
+            return "ready" if success else "not_initialized"
+        except Exception as init_err:
+            logger.error(f"Emergency initialization failed: {init_err}", exc_info=True)
+            return "not_initialized"
 
-if __name__ == "__main__":
-    # Direct invocation
+def force_init_db() -> Tuple[bool, str]:
+    """
+    Force initialize database - skip all checks, just create tables
+    Used as emergency fallback
+    """
+    try:
+        logger.info("🔴 FORCE INITIALIZATION - Creating all tables immediately")
+        
+        from sqlalchemy import create_engine
+        from src.config import get_settings
+        import src.database.models  # Load models
+        from src.database import Base
+        
+        settings = get_settings()
+        sync_url = settings.database_url
+        
+        if sync_url.startswith('sqlite+'):
+            sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
+        
+        logger.info(f"Force init URL: {sync_url}")
+        
+        # Ensure directory exists
+        if sync_url.startswith('sqlite:///'):
+            db_path = sync_url.replace('sqlite:///', '')
+            db_dir = os.path.dirname(db_path)
+            if db_dir:
+                pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
+                logger.info(f"✅ Directory ensured: {db_dir}")
+        
+        # Create engine and all tables
+        logger.info("Creating database engine...")
+        engine = create_engine(
+            sync_url,
+            echo=False,
+            connect_args={"timeout": 30, "check_same_thread": False},
+            pool_pre_ping=True,
+        )
+        
+        logger.info("Calling metadata.create_all()...")
+        Base.metadata.create_all(engine)
+        logger.info("✅ create_all() completed")
+        
+        # Verify
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        engine.dispose()
+        
+        logger.info(f"✅ Force initialization complete: {len(tables)} tables created")
+        
+        if len(tables) >= 5:
+            return True, "ready"
+        else:
+            logger.warning(f"⚠️ Only {len(tables)} tables created")
+            return len(tables) > 0, "partial_init"
+            
+    except Exception as e:
+        logger.error(f"❌ Force init failed: {e}", exc_info=True)
+        return False, str(e)[:50]
+
+
     success, msg = init_db_safe()
     print(f"Status: {'✅ OK' if success else '❌ FAILED'} ({msg})")
     sys.exit(0 if success else 1)

@@ -270,29 +270,37 @@ try:
     
     async def check_database_status():
         """Check if database is initialized and force initialization if needed."""
-        from src.db_init import check_db_status, init_db_safe
+        from src.db_init import check_db_status, init_db_safe, force_init_db
         
         try:
             # First check current status
             status = check_db_status()
             
-            # If not initialized, force initialization
-            if status != "ready":
-                logger.warning(f"Database status is '{status}', attempting initialization...")
-                success, msg = init_db_safe()
-                
-                if success:
-                    logger.info(f"✅ Force initialization successful: {msg}")
-                    return "ready"
-                else:
-                    logger.warning(f"Force initialization incomplete: {msg}")
-                    # Check again after attempt
-                    status = check_db_status()
-                    return status
+            # If ready, return immediately
+            if status == "ready":
+                return "ready"
             
-            return status
+            # Not initialized - try to initialize
+            logger.warning(f"Database status is '{status}', attempting initialization...")
+            success, msg = init_db_safe()
+            
+            if success:
+                logger.info(f"✅ Initialization successful: {msg}")
+                return "ready"
+            
+            # Still failed - try force initialization as last resort
+            logger.warning(f"Normal init failed ({msg}), trying force initialization...")
+            success, msg = force_init_db()
+            
+            if success:
+                logger.info(f"✅ Force initialization successful: {msg}")
+                return "ready"
+            else:
+                logger.error(f"❌ Force initialization failed: {msg}")
+                return "not_initialized"
+                
         except Exception as e:
-            logger.error(f"Database status check failed: {e}")
+            logger.error(f"Database status check failed: {e}", exc_info=True)
             return "error"
     
     @app.get("/")
@@ -341,9 +349,15 @@ try:
         """Manual database initialization endpoint (for recovery)."""
         try:
             logger.info("🔧 Manual database initialization requested...")
-            from src.db_init import init_db_safe
+            from src.db_init import init_db_safe, force_init_db
             
+            # Try normal initialization first
             success, msg = init_db_safe()
+            
+            # If failed, try force initialization
+            if not success:
+                logger.warning("Normal init failed, trying force initialization...")
+                success, msg = force_init_db()
             
             logger.info(f"Database initialization: {'✅ Success' if success else '❌ Failed'} - {msg}")
             
@@ -353,7 +367,7 @@ try:
                 "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
-            logger.error(f"❌ Manual initialization failed: {e}")
+            logger.error(f"❌ Manual initialization failed: {e}", exc_info=True)
             import traceback
             logger.error(traceback.format_exc())
             return {
