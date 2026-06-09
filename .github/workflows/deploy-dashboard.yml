@@ -40,7 +40,7 @@ jobs:
       - name: Build application
         working-directory: dashboard
         env:
-          NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE || 'https://api.example.com' }}
+          NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE || 'https://jimmy-ai-bot.onrender.com' }}
           NEXT_PUBLIC_BASE_PATH: /Jimmy
         run: npm run build
 
