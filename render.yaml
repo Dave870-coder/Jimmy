@@ -6,9 +6,12 @@ services:
     region: oregon
     plan: free
     buildCommand: bash ./build.sh
-    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
-    # Updated: 2026-06-07 - Force redeploy to pick up /health/diagnostics endpoint
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT --workers 1 --loop uvloop --http httptools
     healthCheckPath: /health
+    healthCheckInterval: 30
+    healthCheckTimeout: 10
+    healthCheckUnhealthyThreshold: 3
+    autoRestart: true
     disk:
       name: jimmy-data
       mountPath: /opt/data
@@ -28,6 +31,12 @@ services:
         value: "0.0.0.0"
       - key: API_PORT
         value: "8000"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: LOG_LEVEL
+        value: "INFO"
       - key: GOOGLE_API_KEY
         sync: false
       - key: TELEGRAM_BOT_TOKEN
@@ -38,3 +47,4 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
+    skipHealthCheckOnDeploy: false
