@@ -214,122 +214,29 @@ try:
             logger.info("🚀 APPLICATION STARTING UP")
             logger.info("=" * 60)
             
-            # Import all models to ensure they're registered with Base
-            try:
-                logger.info("Loading database models...")
-                import src.database.models  # noqa - triggers all model class definitions
-                logger.info("✅ All database models loaded")
-                
-                # Create tables synchronously after models are loaded
-                from sqlalchemy import create_engine, inspect
-                from src.database import Base as db_base
-                from src.config import get_settings
-                import pathlib
-                
-                current_settings = get_settings()
-                sync_url = current_settings.database_url
-                if sync_url.startswith('sqlite+'):
-                    sync_url = sync_url.replace('sqlite+aiosqlite:', 'sqlite:')
-                
-                logger.info(f"Database URL: {sync_url}")
-                
-                # Extract path from sqlite:// URL and ensure directory exists
-                if sync_url.startswith('sqlite:///'):
-                    db_path = sync_url.replace('sqlite:///', '')
-                    db_dir = os.path.dirname(db_path)
-                    if db_dir:
-                        logger.info(f"Ensuring database directory exists: {db_dir}")
-                        pathlib.Path(db_dir).mkdir(parents=True, exist_ok=True)
-                        logger.info(f"✅ Database directory ready: {db_dir}")
-                        
-                        # Verify directory is writable
-                        if os.path.isdir(db_dir):
-                            logger.info(f"✅ Directory exists and is readable")
-                            if os.access(db_dir, os.W_OK):
-                                logger.info(f"✅ Directory is writable")
-                            else:
-                                logger.warning(f"⚠️ Directory is NOT writable - may cause database creation issues")
-                
-                logger.info(f"Creating sync engine for table creation...")
-                sync_engine = create_engine(sync_url, echo=False)
-                
-                # Log the tables that will be created
-                logger.info(f"Models to create: {[table.name for table in db_base.metadata.tables.values()]}")
-                
-                logger.info(f"Calling metadata.create_all()...")
-                db_base.metadata.create_all(sync_engine)
-                logger.info("✅ metadata.create_all() completed")
-                
-                # Immediately verify what was created
-                inspector = inspect(sync_engine)
-                created_tables = inspector.get_table_names()
-                logger.info(f"Tables found after creation: {created_tables}")
-                logger.info(f"Total tables: {len(created_tables)}")
-                
-                sync_engine.dispose()
-                logger.info("✅ Database initialization complete")
-                
-                # Final verification
-                if check_database_initialized():
-                    logger.info("✅ Database verification passed - tables exist")
-                else:
-                    logger.error("❌ Database verification FAILED - tables not found after creation attempt")
-                    logger.error("This indicates metadata.create_all() did not create tables as expected")
-                
-            except Exception as e:
-                logger.error(f"❌ Model import or table creation: {e}")
-                logger.error(f"Stack trace: {__import__('traceback').format_exc()}")
+            # Use centralized db_init for database initialization
+            from src.db_init import init_db_safe, check_db_status
             
-            # Verify database with async context (for pool initialization)
-            try:
-                from src.database import engine as db_engine
-                from src.database import Base as db_base
-                if db_engine and db_base:
-                    if check_database_initialized():
-                        try:
-                            logger.info("Verifying database connection pool...")
-                            # Just test connection without inspection for async compatibility
-                            async with db_engine.begin() as conn:
-                                logger.info("✅ Database connection verified")
-                        except Exception as e:
-                            logger.debug(f"Async verify (non-critical): {e}")
-            except Exception as e:
-                logger.debug(f"Database engine verification: {e}")
+            logger.info("Initializing database...")
+            success, msg = init_db_safe()
             
-            # Initialize AI Orchestrator (optional, graceful degradation)
-            try:
-                from src.ai.orchestrator import get_agent_orchestrator
-                orchestrator = get_agent_orchestrator()
-                logger.info("✅ AI Orchestrator initialized")
-            except Exception as e:
-                logger.warning(f"⚠️ AI Orchestrator initialization failed: {e}")
+            if success:
+                logger.info(f"✅ Database initialization successful: {msg}")
+                status = check_db_status()
+                logger.info(f"✅ Database status: {status}")
+            else:
+                logger.error(f"❌ Database initialization failed: {msg}")
+                logger.error("⚠️  Database will be created on first request")
             
-            # Configure Telegram webhook on hosted environments (optional)
-            try:
-                if init_status["config"]:
-                    from src.config import get_settings
-                    current_settings = get_settings()
-                    if hasattr(current_settings, 'telegram_bot_token') and current_settings.telegram_bot_token:
-                        public_base_url = getattr(current_settings, 'public_base_url', None) or os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
-                        if public_base_url:
-                            try:
-                                from src.bot.telegram.handler import get_telegram_bot
-                                telegram_bot = await get_telegram_bot()
-                                if telegram_bot:
-                                    webhook_url = f"{public_base_url}/api/v1/telegram/webhook"
-                                    await telegram_bot.set_webhook(webhook_url, getattr(current_settings, 'telegram_webhook_secret', ''))
-                                    logger.info(f"✅ Telegram webhook configured: {webhook_url}")
-                            except Exception as e:
-                                logger.warning(f"⚠️ Failed to configure Telegram webhook: {e}")
-                        else:
-                            logger.info("ℹ️  No public base URL - Telegram webhook will not be configured")
-            except Exception as e:
-                logger.warning(f"⚠️ Telegram setup failed: {e}")
-            
+            logger.info("=" * 60)
             logger.info("🎉 APPLICATION READY")
             logger.info("=" * 60)
+            
         except Exception as e:
-            logger.error(f"❌ Startup error (but continuing): {e}")
+            logger.error(f"❌ Startup error: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Don't fail - application can still start and initialize on first request
         
         yield
         
@@ -362,8 +269,7 @@ try:
     )
     
     async def check_database_status():
-        """Check if database is initialized, with forced lazy initialization."""
-        # Use the centralized db_init module
+        """Check if database is initialized."""
         from src.db_init import check_db_status
         
         try:
