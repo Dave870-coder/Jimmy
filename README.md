@@ -9,7 +9,12 @@ A production-ready AI Bot Platform powered by **Google AI Studio (Gemini)**, int
 - Babcock University
 - [View Full Author Details](AUTHOR.md)
 
-## 📊 Dashboard
+## 📊 Dashboard & Web App
+
+### 🌐 Live Web App Dashboard
+**[🚀 View Live Dashboard](https://Dave870-coder.github.io/Jimmy/)**
+
+Your Jimmy Bot management dashboard with real-time metrics, monitoring, and control panel.
 
 ![Jimmy Bot Dashboard](docs/dashboard-screenshot.png)
 
