@@ -414,6 +414,33 @@ try:
             "timestamp": datetime.utcnow().isoformat(),
         }
     
+    @app.post("/initialize-db")
+    async def initialize_db_endpoint():
+        """Manual database initialization endpoint (for recovery)."""
+        try:
+            logger.info("🔧 Manual database initialization requested...")
+            from src.db_init import init_db_safe
+            
+            success, msg = init_db_safe()
+            
+            logger.info(f"Database initialization: {'✅ Success' if success else '❌ Failed'} - {msg}")
+            
+            return {
+                "success": success,
+                "message": msg,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        except Exception as e:
+            logger.error(f"❌ Manual initialization failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {
+                "success": False,
+                "message": str(e),
+                "error": traceback.format_exc(),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+    
     # Layer 2: Core monitoring endpoints
     @app.get("/metrics")
     async def metrics():
