@@ -269,11 +269,27 @@ try:
     )
     
     async def check_database_status():
-        """Check if database is initialized."""
-        from src.db_init import check_db_status
+        """Check if database is initialized and force initialization if needed."""
+        from src.db_init import check_db_status, init_db_safe
         
         try:
+            # First check current status
             status = check_db_status()
+            
+            # If not initialized, force initialization
+            if status != "ready":
+                logger.warning(f"Database status is '{status}', attempting initialization...")
+                success, msg = init_db_safe()
+                
+                if success:
+                    logger.info(f"✅ Force initialization successful: {msg}")
+                    return "ready"
+                else:
+                    logger.warning(f"Force initialization incomplete: {msg}")
+                    # Check again after attempt
+                    status = check_db_status()
+                    return status
+            
             return status
         except Exception as e:
             logger.error(f"Database status check failed: {e}")
