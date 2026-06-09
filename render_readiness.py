@@ -135,7 +135,11 @@ class RenderReadinessChecker:
         print(f"{status} build.sh exists (executable: {is_executable})")
         
         # Read and verify content
-        content = build_sh.read_text()
+        try:
+            content = build_sh.read_text(encoding='utf-8-sig')
+        except:
+            content = build_sh.read_text(encoding='latin-1')
+        
         checks = [
             ("pip install", "Installs dependencies"),
             ("python3", "Runs Python"),
@@ -223,7 +227,10 @@ class RenderReadinessChecker:
             self.errors.append("render.yaml does not exist")
             return
         
-        content = render_yaml.read_text()
+        try:
+            content = render_yaml.read_text(encoding='utf-8-sig')
+        except:
+            content = render_yaml.read_text(encoding='latin-1')
         
         checks = [
             ("buildCommand", "Build command defined"),
