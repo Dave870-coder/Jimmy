@@ -82,8 +82,8 @@ docker-compose.override.yml
 # Node/Dashboard
 dashboard/node_modules/
 dashboard/.next/
-dashboard/out/
 dashboard/.env.local
+# Note: dashboard/out/ is NOT ignored - it's the built frontend needed for production!
 
 # Miscellaneous
 .pre-commit/
