@@ -5,7 +5,11 @@ services:
     pythonVersion: 3.12
     region: oregon
     plan: free
-    buildCommand: bash ./build.sh
+    buildCommand: |
+      # Install Node.js for frontend build
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs &&
+      # Run the build script
+      bash ./build.sh
     startCommand: python run_bot.py
     healthCheckPath: /health
     healthCheckInterval: 10
