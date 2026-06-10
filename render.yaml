@@ -6,10 +6,10 @@ services:
     region: oregon
     plan: free
     buildCommand: bash ./build.sh
-    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT --workers 1 --loop uvloop --http httptools
+    startCommand: python run_bot.py
     healthCheckPath: /health
-    healthCheckInterval: 30
-    healthCheckTimeout: 10
+    healthCheckInterval: 10
+    healthCheckTimeout: 5
     healthCheckUnhealthyThreshold: 3
     autoRestart: true
     disk:

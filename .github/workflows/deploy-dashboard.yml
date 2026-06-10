@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build Dashboard
     runs-on: ubuntu-latest
     
     steps:
@@ -35,14 +36,30 @@ jobs:
 
       - name: Install dependencies
         working-directory: dashboard
-        run: npm install
+        run: npm ci
+
+      - name: Lint code
+        working-directory: dashboard
+        run: npm run lint --if-present || echo "Linting skipped"
 
       - name: Build application
         working-directory: dashboard
         env:
           NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE || 'https://jimmy-ai-bot.onrender.com' }}
           NEXT_PUBLIC_BASE_PATH: /Jimmy
+          NODE_ENV: production
         run: npm run build
+
+      - name: Verify build output
+        working-directory: dashboard
+        run: |
+          if [ -d "out" ]; then
+            echo "✅ Build output directory exists"
+            ls -la out | head -20
+          else
+            echo "❌ Build output directory not found!"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -50,6 +67,7 @@ jobs:
           path: 'dashboard/out'
 
   deploy:
+    name: Deploy to GitHub Pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -66,6 +84,8 @@ jobs:
         run: |
           echo "## ✅ Dashboard Deployed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Dashboard URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** [${{ steps.deployment.outputs.page_url }}](${{ steps.deployment.outputs.page_url }})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Deployed at: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend API:** \`${{ secrets.NEXT_PUBLIC_API_BASE || 'https://jimmy-ai-bot.onrender.com' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

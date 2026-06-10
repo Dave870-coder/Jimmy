@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Production bot entry point with comprehensive error handling.
-Designed to run seamlessly online without crashing.
+Designed to run seamlessly online without crashing on Render.
 """
 
 import sys
@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 logger.info("=" * 70)
-logger.info("🚀 STARTING PRODUCTION BOT")
+logger.info("🚀 STARTING PRODUCTION BOT FOR RENDER")
 logger.info("=" * 70)
 
 
@@ -38,19 +38,29 @@ def create_app():
     except Exception as e:
         logger.error(f"❌ Failed to create app: {e}")
         logger.error("Attempting to start minimal app...")
+        import traceback
+        logger.error(traceback.format_exc())
         
         # Minimal fallback app
         from fastapi import FastAPI
+        from datetime import datetime
         
         fallback_app = FastAPI(title="AI Bot (Degraded Mode)")
         
         @fallback_app.get("/")
         async def root():
-            return {"status": "error", "message": "App initialization failed"}
+            return {
+                "status": "error", 
+                "message": "App initialization failed",
+                "timestamp": datetime.utcnow().isoformat()
+            }
         
         @fallback_app.get("/health")
         async def health():
-            return {"status": "unhealthy"}
+            return {
+                "status": "unhealthy",
+                "timestamp": datetime.utcnow().isoformat()
+            }
         
         logger.warning("⚠️  Running in degraded mode")
         return fallback_app
@@ -63,33 +73,38 @@ def main():
         from src.config import get_settings
         settings = get_settings()
         
-        # Override port from environment if set (Railway/Heroku)
+        # Get port and workers from environment (Render sets these)
         port = int(os.getenv('PORT', settings.api_port))
-        workers = int(os.getenv('WEB_CONCURRENCY', settings.workers))
+        # Render free tier: use 1 worker to avoid memory issues
+        workers = int(os.getenv('WEB_CONCURRENCY', '1'))
         
         logger.info(f"Environment: {settings.app_env}")
         logger.info(f"Debug: {settings.debug}")
         logger.info(f"Port: {port}")
         logger.info(f"Workers: {workers}")
+        logger.info(f"Database URL: {settings.database_url[:50]}...")
         
         logger.info("🔧 Creating FastAPI application...")
         app = create_app()
         
         logger.info("=" * 70)
-        logger.info("✅ BOT READY")
+        logger.info("✅ BOT READY - Starting uvicorn server")
         logger.info("=" * 70)
         logger.info(f"🌐 Listening on {settings.api_host}:{port}")
         logger.info(f"📚 API Docs: http://{settings.api_host}:{port}/docs")
         logger.info("=" * 70)
         
-        # Start uvicorn server
+        # Start uvicorn server with minimal dependencies for Render
+        # Don't use uvloop or httptools - stick with default async implementation
         import uvicorn
         
         uvicorn.run(
             app,
             host=settings.api_host,
             port=port,
-            log_level=settings.log_level.lower(),
+            workers=workers,
+            loop="asyncio",
+            log_level=settings.log_level.lower() if hasattr(settings, 'log_level') else "info",
         )
         
     except KeyboardInterrupt:
