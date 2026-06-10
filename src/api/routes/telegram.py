@@ -1,12 +1,53 @@
 """API routes for Telegram integration."""
 
+import logging
 from fastapi import APIRouter, Header, HTTPException, status
+from pydantic import BaseModel
 
 from src.config import get_settings
 from src.bot.telegram.handler import get_telegram_bot
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/telegram", tags=["telegram"])
 settings = get_settings()
+
+
+class TelegramConnectRequest(BaseModel):
+    """Request to connect Telegram bot."""
+    token: str
+
+
+@router.post("/connect")
+async def telegram_connect(request: TelegramConnectRequest):
+    """Connect Telegram bot with the provided token."""
+    if not request.token or not request.token.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram bot token is required",
+        )
+    
+    try:
+        # Try to initialize bot with the token
+        from telegram import Bot
+        
+        bot = Bot(token=request.token)
+        me = await bot.get_me()
+        
+        logger.info(f"✅ Telegram bot connected: {me.username}")
+        
+        return {
+            "ok": True,
+            "username": me.username,
+            "first_name": me.first_name,
+            "is_bot": me.is_bot,
+            "message": "Telegram bot connected successfully",
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to connect Telegram bot: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to connect Telegram bot: {str(e)}",
+        )
 
 
 @router.post("/webhook")

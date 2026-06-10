@@ -418,6 +418,14 @@ try:
     except Exception as e:
         logger.warning(f"⚠️ Telegram route failed: {e}")
     
+    # Layer 4b: Add Config route (Google API, etc)
+    try:
+        from src.api.routes.config import router as config_router
+        app.include_router(config_router, tags=["config"])
+        logger.info("✅ Config route loaded")
+    except Exception as e:
+        logger.warning(f"⚠️ Config route failed: {e}")
+    
     # Layer 5: Add WhatsApp routes
     try:
         from src.api.routes.whatsapp import router as whatsapp_router
