@@ -112,10 +112,18 @@ class Settings(BaseSettings):
 
     # Security
     cors_origins: list[str] = [
+        # Local development
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        # Production - GitHub Pages
+        "https://dave870-coder.github.io",
+        "https://dave870-coder.github.io/Jimmy",
+        # Production - Render backend
+        "https://jimmy-ai-bot.onrender.com",
+        # Allow requests from the same origin
+        "*",  # Fallback for development/testing
     ]
     rate_limit_requests: int = 100
     rate_limit_period: int = 3600

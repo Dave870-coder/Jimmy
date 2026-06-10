@@ -17,9 +17,9 @@ echo ""
 echo "Installing project dependencies from requirements.txt..."
 if [ -f "requirements.txt" ]; then
     pip install --no-cache-dir -r requirements.txt
-    echo "✅ Dependencies installed from requirements.txt"
+    echo "[OK] Dependencies installed from requirements.txt"
 else
-    echo "❌ requirements.txt not found!"
+    echo "[ERROR] requirements.txt not found!"
     exit 1
 fi
 
@@ -30,19 +30,19 @@ echo "=========================================="
 
 echo ""
 echo "Checking FastAPI..."
-python3 -c "import fastapi; print(f'✅ FastAPI {fastapi.__version__}')" || exit 1
+python3 -c "import fastapi; print(f'[OK] FastAPI {fastapi.__version__}')" || exit 1
 
 echo ""
 echo "Checking SQLAlchemy..."
-python3 -c "import sqlalchemy; print(f'✅ SQLAlchemy {sqlalchemy.__version__}')" || exit 1
+python3 -c "import sqlalchemy; print(f'[OK] SQLAlchemy {sqlalchemy.__version__}')" || exit 1
 
 echo ""
 echo "Checking Pydantic..."
-python3 -c "import pydantic; print(f'✅ Pydantic {pydantic.__version__}')" || exit 1
+python3 -c "import pydantic; print(f'[OK] Pydantic {pydantic.__version__}')" || exit 1
 
 echo ""
 echo "Checking Uvicorn..."
-python3 -c "import uvicorn; print(f'✅ Uvicorn {uvicorn.__version__}')" || exit 1
+python3 -c "import uvicorn; print(f'[OK] Uvicorn {uvicorn.__version__}')" || exit 1
 
 echo ""
 echo "=========================================="
@@ -52,20 +52,21 @@ echo "=========================================="
 if [ -f "init_database.py" ]; then
     python3 init_database.py
     if [ $? -eq 0 ]; then
-        echo "✅ Database initialization successful"
+        echo "[OK] Database initialization successful"
     else
-        echo "⚠️  Database initialization completed with warnings"
+        echo "[WARN] Database initialization completed with warnings"
         echo "    (Database will be created on first app startup)"
     fi
 else
-    echo "⚠️  init_database.py not found, skipping pre-initialization"
+    echo "[WARN] init_database.py not found, skipping pre-initialization"
     echo "    (Database will be created on first app startup)"
 fi
 
 echo ""
 echo "=========================================="
-echo "✅ Build complete - ready for deployment"
+echo "[OK] Build complete - ready for deployment"
 echo "=========================================="
+
 
 
 
