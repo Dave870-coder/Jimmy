@@ -59,19 +59,28 @@ if command -v node &> /dev/null; then
         
         echo "Installing frontend dependencies..."
         npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || {
-            echo "[WARN] npm install failed - frontend build skipped"
+            echo "[WARN] npm install failed - skipping frontend build"
             cd ..
         }
         
         if [ -f "package.json" ] && [ -d "node_modules" ]; then
-            echo "Building Next.js application..."
-            npm run build 2>/dev/null || {
+            echo "Building Next.js application (static export)..."
+            NODE_ENV=production npm run build 2>&1 || {
                 echo "[WARN] Frontend build failed - this is OK for now"
-                echo "       Frontend will use development build or static fallback"
+                echo "       Frontend will use existing build or static fallback"
             }
+            
+            if [ -d "out" ]; then
+                echo "[OK] Frontend build successful: out/ directory created"
+                echo "     Contains: $(ls -la out/ | grep -c '^' | tail -1) items"
+            else
+                echo "[WARN] Frontend out/ directory not created after build"
+            fi
+            
             cd ..
         else
             cd ..
+            echo "[WARN] node_modules not found after install"
         fi
     else
         echo "[WARN] dashboard directory not found, skipping frontend build"

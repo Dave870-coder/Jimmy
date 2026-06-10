@@ -8,6 +8,9 @@ services:
     buildCommand: |
       # Install Node.js for frontend build
       curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs &&
+      # Export environment variables for Next.js build
+      export PUBLIC_BASE_URL=https://jimmy-ai-bot.onrender.com &&
+      export NODE_ENV=production &&
       # Run the build script
       bash ./build.sh
     startCommand: python run_bot.py

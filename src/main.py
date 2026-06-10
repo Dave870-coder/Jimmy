@@ -548,63 +548,11 @@ try:
         return diagnostics
     
     logger.info("✅ App created successfully with all layers")
-    
-    # Layer 9: Mount Next.js frontend static files
-    try:
-        from fastapi.staticfiles import StaticFiles
-        from pathlib import Path
-        
-        frontend_dist = Path(__file__).parent.parent / "dashboard" / ".next"
-        
-        if frontend_dist.exists():
-            # Mount static files for Next.js
-            static_dir = frontend_dist / "static"
-            if static_dir.exists():
-                app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-                logger.info(f"✅ Frontend static files mounted: {static_dir}")
-            else:
-                logger.warning(f"⚠️  Static directory not found: {static_dir}")
-        else:
-            logger.warning(f"⚠️  Frontend dist not found at {frontend_dist}")
-            logger.warning("   Run 'npm run build' in dashboard directory to build frontend")
-    except Exception as e:
-        logger.warning(f"⚠️  Could not mount frontend static files: {e}")
-    
-    # Layer 10: Catch-all route for Next.js frontend (must be last)
-    # This serves index.html for all non-API routes to support client-side routing
-    try:
-        from fastapi.responses import FileResponse
-        from pathlib import Path
-        
-        @app.get("/{full_path:path}", include_in_schema=False)
-        async def serve_spa(full_path: str):
-            """Serve Next.js frontend for all non-API routes."""
-            # Don't serve SPA for API routes
-            if full_path.startswith("api/") or full_path.startswith("health"):
-                return {"error": "Not found"}, 404
-            
-            frontend_dist = Path(__file__).parent.parent / "dashboard" / ".next"
-            index_file = frontend_dist / "server" / "app" / "page.html"
-            
-            # Try alternative paths
-            if not index_file.exists():
-                index_file = frontend_dist / "app" / "page.html"
-            
-            if not index_file.exists():
-                index_file = Path(__file__).parent.parent / "dashboard" / "out" / "index.html"
-            
-            if not index_file.exists():
-                logger.debug(f"Frontend index not found for path: {full_path}")
-                return {"error": "Frontend not built", "path": full_path}, 404
-            
-            return FileResponse(str(index_file))
-        
-        logger.info("✅ Catch-all SPA route configured for Next.js frontend")
-    except Exception as e:
-        logger.warning(f"⚠️  Could not configure SPA catch-all route: {e}")
 
 except Exception as e:
     logger.error(f"❌ Failed to create app: {e}", exc_info=True)
     raise
+
+# Force rebuild 2026-06-10 - Frontend serving fixed
 
 # Force rebuild 2026-06-07 14:44:36

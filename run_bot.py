@@ -35,18 +35,23 @@ def create_app():
         from src.main import app
         logger.info("✅ FastAPI app created successfully")
         
-        # Configure static files serving for Next.js frontend
+        # Configure static files serving for Next.js frontend (static export)
         try:
             from fastapi.staticfiles import StaticFiles
-            frontend_dist = project_root / "dashboard" / ".next"
+            from pathlib import Path
             
-            if frontend_dist.exists():
-                # Mount static files
-                app.mount("/static", StaticFiles(directory=str(frontend_dist / "static")), name="static")
-                logger.info(f"✅ Frontend static files mounted: {frontend_dist}")
+            # Next.js exports to 'out/' directory with static export
+            frontend_out = project_root / "dashboard" / "out"
+            
+            if frontend_out.exists():
+                # Mount the entire out directory for Next.js static export
+                app.mount("/", StaticFiles(directory=str(frontend_out), html=True), name="frontend")
+                logger.info(f"✅ Frontend static files mounted: {frontend_out}")
+                logger.info("   - Serving Next.js static export with SPA routing")
             else:
-                logger.warning(f"⚠️  Frontend build not found at {frontend_dist}")
+                logger.warning(f"⚠️  Frontend build not found at {frontend_out}")
                 logger.warning("   Run 'npm run build' in dashboard directory")
+                logger.warning("   (or 'npm install && npm run build')")
         except Exception as e:
             logger.warning(f"⚠️  Could not mount frontend static files: {e}")
         
