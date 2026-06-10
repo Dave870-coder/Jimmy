@@ -1,13 +1,14 @@
 /** @type {import('next').NextConfig} */
 
-// Detect if running on Render (production)
-const isRender = process.env.PUBLIC_BASE_URL && process.env.PUBLIC_BASE_URL.includes('onrender.com');
+// Detect if building for GitHub Pages specifically
+// Set GITHUB_PAGES_BUILD=true to build for GitHub Pages, otherwise use root path
+const buildForGitHubPages = process.env.GITHUB_PAGES_BUILD === 'true';
 
-// Determine base path: empty for Render/production, /Jimmy for GitHub Pages
-const basePath = isRender ? '' : (process.env.NEXT_PUBLIC_BASE_PATH || '/Jimmy');
+// Determine base path: /Jimmy only for GitHub Pages, empty for everything else
+const basePath = buildForGitHubPages ? '/Jimmy' : '';
 
 // API base URL - Production uses Render backend, dev uses localhost
-const isProduction = isRender || process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_API_BASE;
+const isProduction = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_API_BASE;
 const apiBase = process.env.NEXT_PUBLIC_API_BASE 
   ? (process.env.NEXT_PUBLIC_API_BASE).replace(/\/$/, '')
   : isProduction 

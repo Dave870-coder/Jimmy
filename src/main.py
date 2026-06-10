@@ -303,16 +303,6 @@ try:
             logger.error(f"Database status check failed: {e}", exc_info=True)
             return "error"
     
-    @app.get("/")
-    async def root():
-        db_status = await check_database_status()
-        return {
-            "status": "running",
-            "message": "AI Bot Platform API",
-            "timestamp": datetime.utcnow().isoformat(),
-            "database": db_status,
-        }
-    
     @app.get("/health")
     async def health():
         db_status = await check_database_status()
