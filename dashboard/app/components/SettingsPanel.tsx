@@ -1,6 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// Production: https://jimmy-ai-bot.onrender.com, Dev: http://localhost:8000
+const API_BASE = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_API_BASE || (window.location.hostname.includes('github.io') ? 'https://jimmy-ai-bot.onrender.com' : 'http://localhost:8000'))
+  : 'https://jimmy-ai-bot.onrender.com';
 
 interface SettingsState {
   telegramToken: string;
@@ -11,12 +16,13 @@ interface SettingsState {
 }
 
 export default function SettingsPanel() {
+  const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState<SettingsState>({
     telegramToken: '',
     googleApiKey: '',
     whatsappConnected: false,
     voiceEnabled: false,
-    maxTokens: 7000000, // 7 million tokens
+    maxTokens: 7000000,
   });
 
   const [status, setStatus] = useState<{
@@ -31,6 +37,32 @@ export default function SettingsPanel() {
 
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Load settings from localStorage on client-side mount
+  useEffect(() => {
+    const telegramToken = localStorage.getItem('telegramToken') || '';
+    const googleApiKey = localStorage.getItem('googleApiKey') || '';
+    const whatsappConnected = localStorage.getItem('whatsappConnected') === 'true';
+    const voiceEnabled = localStorage.getItem('voiceEnabled') === 'true';
+    const maxTokens = parseInt(localStorage.getItem('maxTokens') || '7000000');
+
+    setSettings({
+      telegramToken,
+      googleApiKey,
+      whatsappConnected,
+      voiceEnabled,
+      maxTokens,
+    });
+
+    setStatus({
+      telegram: telegramToken ? 'connected' : 'disconnected',
+      whatsapp: whatsappConnected ? 'connected' : 'disconnected',
+      voice: voiceEnabled ? 'enabled' : 'disabled',
+    });
+
+    setMounted(true);
+  }, []);
 
   const handleTelegramConnect = async () => {
     if (!settings.telegramToken.trim()) {
@@ -39,10 +71,11 @@ export default function SettingsPanel() {
     }
 
     setLoading(true);
+    setMessage('');
     setStatus((prev) => ({ ...prev, telegram: 'connecting' }));
 
     try {
-      const response = await fetch('/api/v1/telegram/connect', {
+      const response = await fetch(`${API_BASE}/api/v1/telegram/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -51,15 +84,19 @@ export default function SettingsPanel() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setStatus((prev) => ({ ...prev, telegram: 'connected' }));
         localStorage.setItem('telegramToken', settings.telegramToken);
+        setMessage('✅ Telegram bot connected successfully!');
       } else {
-        alert('Failed to connect Telegram bot');
+        const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        setMessage(`❌ Failed: ${error.detail || 'Failed to connect'}`);
         setStatus((prev) => ({ ...prev, telegram: 'disconnected' }));
       }
     } catch (error) {
       console.error('Telegram connection error:', error);
-      alert('Error connecting to Telegram');
+      const errorMsg = error instanceof Error ? error.message : 'Connection error';
+      setMessage(`❌ Error: ${errorMsg}`);
       setStatus((prev) => ({ ...prev, telegram: 'disconnected' }));
     } finally {
       setLoading(false);
@@ -72,8 +109,11 @@ export default function SettingsPanel() {
       return;
     }
 
+    setLoading(true);
+    setMessage('');
+
     try {
-      const response = await fetch('/api/v1/config/google-api', {
+      const response = await fetch(`${API_BASE}/api/v1/config/google-api`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,33 +122,46 @@ export default function SettingsPanel() {
       });
 
       if (response.ok) {
-        alert('Google API key configured successfully!');
         localStorage.setItem('googleApiKey', settings.googleApiKey);
+        setMessage('✅ Google API key configured successfully!');
       } else {
-        alert('Failed to set Google API key');
+        const error = await response.json().catch(() => ({ detail: 'Failed to set key' }));
+        setMessage(`❌ Failed: ${error.detail}`);
       }
     } catch (error) {
       console.error('Google API key error:', error);
-      alert('Error configuring Google API key');
+      const errorMsg = error instanceof Error ? error.message : 'Configuration error';
+      setMessage(`❌ Error: ${errorMsg}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleWhatsAppConnect = async () => {
     setLoading(true);
+    setMessage('');
     setStatus((prev) => ({ ...prev, whatsapp: 'connecting' }));
 
     try {
-      const response = await fetch('/api/v1/whatsapp/qr');
+      const response = await fetch(`${API_BASE}/api/v1/whatsapp/qr`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
       if (response.ok) {
         setShowQR(true);
         setStatus((prev) => ({ ...prev, whatsapp: 'connected' }));
+        localStorage.setItem('whatsappConnected', 'true');
+        setMessage('✅ WhatsApp QR code ready!');
       } else {
-        alert('Failed to generate WhatsApp QR code');
+        const error = await response.json().catch(() => ({ detail: 'Failed' }));
+        setMessage(`❌ Failed: ${error.detail}`);
         setStatus((prev) => ({ ...prev, whatsapp: 'disconnected' }));
       }
     } catch (error) {
       console.error('WhatsApp error:', error);
-      alert('Error generating WhatsApp QR');
+      const errorMsg = error instanceof Error ? error.message : 'Connection error';
+      setMessage(`❌ Error: ${errorMsg}`);
       setStatus((prev) => ({ ...prev, whatsapp: 'disconnected' }));
     } finally {
       setLoading(false);
@@ -125,6 +178,13 @@ export default function SettingsPanel() {
     localStorage.setItem('voiceEnabled', String(newVoiceState));
   };
 
+  // Don't render until mounted on client (prevents localStorage errors)
+  if (!mounted) {
+    return <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <p className="text-slate-300">Loading settings...</p>
+    </div>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-4xl mx-auto">
@@ -132,8 +192,19 @@ export default function SettingsPanel() {
           <span>⚙️</span> Integration Settings
         </h1>
         <p className="text-slate-400 mb-8">
-          Configure your bot integrations and features
+          Configure your bot integrations and features (Production Mode - Real-Time Only)
         </p>
+
+        {/* Status Message */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            message.startsWith('✅') 
+              ? 'bg-green-500/10 border-green-500 text-green-300'
+              : 'bg-red-500/10 border-red-500 text-red-300'
+          }`}>
+            {message}
+          </div>
+        )}
 
         {/* Telegram Integration */}
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 mb-6">

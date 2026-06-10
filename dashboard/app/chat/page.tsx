@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000').replace(/\/$/, '');
+// Production: https://jimmy-ai-bot.onrender.com, Dev: http://localhost:8000
+const API_BASE = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_API_BASE || (window.location.hostname.includes('github.io') ? 'https://jimmy-ai-bot.onrender.com' : 'http://localhost:8000'))
+  : 'https://jimmy-ai-bot.onrender.com';
 
 interface Message {
   id: string;
@@ -14,7 +17,7 @@ interface Message {
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
+      id: '0',
       role: 'assistant',
       content: 'Hello! I\'m Jimmy, your AI Bot. How can I help you today?',
       timestamp: new Date().toISOString(),
@@ -23,8 +26,27 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check backend status on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/health`, { 
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        setBackendStatus(response.ok ? 'online' : 'offline');
+      } catch (err) {
+        setBackendStatus('offline');
+      }
+    };
+    checkBackend();
+    const interval = setInterval(checkBackend, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,7 +74,11 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // Send to backend (with user_id as query param)
+      if (backendStatus === 'offline') {
+        throw new Error('Backend is offline. Please wait for deployment to complete.');
+      }
+
+      // Send to backend real-time API - PRODUCTION ONLY
       const response = await fetch(`${API_BASE}/api/v1/messages/send?user_id=web-user`, {
         method: 'POST',
         headers: {
@@ -64,27 +90,35 @@ export default function ChatPage() {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        if (response.status === 404) {
+          throw new Error('Backend API endpoint not found. Backend may still be deploying.');
+        } else if (response.status === 503) {
+          throw new Error('Backend is temporarily unavailable. Please try again in a moment.');
+        } else {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
       }
 
       const data = await response.json();
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response || data.message || 'I received your message but couldn\'t generate a response.',
+        content: data.response || data.message || 'I received your message but couldn\'t generate a response. Please configure a Google AI API key in Settings.',
         timestamp: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, botMessage]);
+      setBackendStatus('online');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMessage);
+      setBackendStatus('offline');
       
       // Show error message in chat
       const errorBotMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Sorry, I encountered an error: ${errorMessage}. Backend may still be deploying.`,
+        content: `❌ Error: ${errorMessage}`,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorBotMessage]);
@@ -180,9 +214,11 @@ export default function ChatPage() {
       {/* Footer Info */}
       <footer className="bg-slate-900 border-t border-slate-700 px-4 py-3 text-center text-xs text-slate-400">
         <p>
-          Backend: <span className="text-green-400">Connected</span> • 
-          Database: <span className="text-green-400">Ready</span> •
-          Status: <span className="text-green-400">Active</span>
+          Backend: <span className={`font-semibold ${backendStatus === 'online' ? 'text-green-400' : backendStatus === 'offline' ? 'text-red-400' : 'text-yellow-400'}`}>
+            {backendStatus === 'checking' ? '⏳ Checking' : backendStatus === 'online' ? '✅ Online' : '❌ Offline'}
+          </span> • 
+          API: <span className="text-slate-300">{API_BASE}</span> •
+          Mode: <span className="text-blue-400 font-semibold">Live Only</span>
         </p>
       </footer>
     </div>

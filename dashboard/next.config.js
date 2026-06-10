@@ -3,10 +3,13 @@
 // Determine base path from environment or default to /Jimmy for GitHub Pages
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/Jimmy';
 
-// API base URL configuration
+// API base URL - Production uses Render backend, dev uses localhost
+const isProduction = process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_API_BASE;
 const apiBase = process.env.NEXT_PUBLIC_API_BASE 
   ? (process.env.NEXT_PUBLIC_API_BASE).replace(/\/$/, '')
-  : 'http://127.0.0.1:8000';
+  : isProduction 
+    ? 'https://jimmy-ai-bot.onrender.com'
+    : 'http://127.0.0.1:8000';
 
 const nextConfig = {
   reactStrictMode: true,
@@ -25,17 +28,6 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
     NEXT_PUBLIC_API_BASE: apiBase,
-  },
-  // Redirect API calls to backend
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: '/api/:path*',
-          destination: `${apiBase}/api/:path*`,
-        },
-      ],
-    };
   },
 };
 
