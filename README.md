@@ -1,12 +1,70 @@
 # AI Bot Platform
 
-A production-ready AI Bot Platform powered by **Google AI Studio (Gemini)**, integrated with WhatsApp and Telegram, featuring autonomous agents, memory systems, and intelligent task automation.
+A production-ready AI Bot Platform powered by **Google AI Studio (Gemini)**, integrated with WhatsApp and Telegram, featuring autonomous agents, memory systems, and intelligent task automation with advanced security, 7M token conversation support, and voice capability.
 
 ---
 
-## 🌐 **[→ LIVE DASHBOARD](https://Dave870-coder.github.io/Jimmy/)**
+## 🚀 **QUICK ACCESS - START HERE!**
 
-### ⚡ **[Visit Jimmy Bot Dashboard Now](https://Dave870-coder.github.io/Jimmy/)**
+### 💬 **[→ CHAT WITH JIMMY NOW](https://dave870-coder.github.io/Jimmy/chat)**
+Interactive chat interface to talk with Jimmy AI Bot directly!
+
+### 📊 **[→ DASHBOARD & SETTINGS](https://dave870-coder.github.io/Jimmy/)**
+Manage integrations, configure Telegram, WhatsApp, Google AI, and more!
+
+### 📚 **[→ API DOCUMENTATION](https://jimmy-ai-bot.onrender.com/docs)**
+Full API documentation with 50+ endpoints (when backend is running)
+
+---
+
+## ✨ Features
+
+### 💬 **Chat Interface**
+- Real-time messaging with Jimmy AI Bot
+- Beautiful dark theme UI
+- Message history & conversation context
+- Responsive design (mobile, tablet, desktop)
+- **[Live Chat](https://dave870-coder.github.io/Jimmy/chat)**
+
+### 🔐 **Security Features**
+- SQL injection prevention (parameterized queries)
+- Input validation & sanitization
+- XSS protection
+- Rate limiting
+- Token validation
+- Secure API key storage
+
+### 🎤 **Voice Conversation**
+- Speech-to-text input
+- Text-to-speech responses
+- Multi-language support
+- Enable in Settings ⚙️
+
+### 📱 **Integration Support**
+- **Telegram** - Connect with bot token
+- **WhatsApp** - QR code connection
+- **Voice** - Full voice support
+- **50+ API endpoints** - Complete API suite
+
+### 💾 **Advanced Conversation Management**
+- **7 Million Token Support** - Maintain massive conversation context
+- Automatic token counting
+- Conversation trimming for context limits
+- Complex multi-turn conversations
+- Memory management
+
+### 📊 **Dashboard & Analytics**
+- Real-time bot metrics
+- User management
+- Integration status
+- System monitoring
+- Activity logs
+
+---
+
+## 🌐 **[→ LIVE DASHBOARD](https://dave870-coder.github.io/Jimmy/)**
+
+### ⚡ **[Visit Jimmy Bot Dashboard Now](https://dave870-coder.github.io/Jimmy/)**
 - Real-time bot monitoring and control
 - API configuration interface  
 - WhatsApp & Telegram integration setup
