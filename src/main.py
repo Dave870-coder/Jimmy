@@ -268,6 +268,28 @@ try:
         allow_headers=["*"],
     )
     
+    # Root handler to serve frontend or return app status
+    @app.get("/", response_class=None)
+    async def root():
+        """Root endpoint - returns app status."""
+        try:
+            # Try to serve frontend index.html
+            from pathlib import Path
+            from fastapi.responses import FileResponse
+            
+            frontend_index = Path("dashboard/out/index.html")
+            if frontend_index.exists():
+                return FileResponse(frontend_index, media_type="text/html")
+        except Exception as e:
+            logger.debug(f"Could not serve frontend index.html: {e}")
+        
+        # Fallback to app status
+        return {
+            "status": "running",
+            "message": "AI Bot Platform - Frontend not found, serving API instead",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    
     async def check_database_status():
         """Check if database is initialized and force initialization if needed."""
         from src.db_init import check_db_status, init_db_safe, force_init_db
