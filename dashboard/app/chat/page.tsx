@@ -52,16 +52,14 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // Send to backend
-      const response = await fetch(`${API_BASE}/api/v1/messages`, {
+      // Send to backend (with user_id as query param)
+      const response = await fetch(`${API_BASE}/api/v1/messages/send?user_id=web-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: 'web-user',
           content: input,
-          conversation_id: 'web-chat-session',
         }),
       });
 
