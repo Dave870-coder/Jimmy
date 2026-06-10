@@ -2,10 +2,31 @@
 
 import { useState, useEffect } from 'react';
 
-// Production: https://jimmy-ai-bot.onrender.com, Dev: http://localhost:8000
-const API_BASE = typeof window !== 'undefined'
-  ? (process.env.NEXT_PUBLIC_API_BASE || (window.location.hostname.includes('github.io') ? 'https://jimmy-ai-bot.onrender.com' : 'http://localhost:8000'))
-  : 'https://jimmy-ai-bot.onrender.com';
+// Determine API base URL based on environment
+const getApiBase = (): string => {
+  if (typeof window === 'undefined') {
+    return 'https://jimmy-ai-bot.onrender.com'; // Default fallback for SSR
+  }
+  
+  // Use environment variable if available
+  if (process.env.NEXT_PUBLIC_API_BASE && process.env.NEXT_PUBLIC_API_BASE.trim()) {
+    return process.env.NEXT_PUBLIC_API_BASE.replace(/\/$/, '');
+  }
+  
+  // Use same domain as current application
+  const protocol = window.location.protocol; // http: or https:
+  const host = window.location.host; // domain and port
+  
+  // For development: if on localhost:3000, use API on localhost:8000
+  if (host.includes('localhost:3000')) {
+    return 'http://localhost:8000';
+  }
+  
+  // For production: use same domain (e.g., https://jimmy-ai-bot.onrender.com)
+  return `${protocol}//${host}`;
+};
+
+const API_BASE = getApiBase();
 
 interface SettingsState {
   telegramToken: string;

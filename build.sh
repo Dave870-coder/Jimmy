@@ -46,6 +46,32 @@ python3 -c "import uvicorn; print(f'[OK] Uvicorn {uvicorn.__version__}')" || exi
 
 echo ""
 echo "=========================================="
+echo "Building Next.js Frontend..."
+echo "=========================================="
+
+if [ -d "dashboard" ]; then
+    cd dashboard
+    
+    echo "Installing frontend dependencies..."
+    npm install --legacy-peer-deps || npm install
+    
+    echo "Building Next.js application..."
+    npm run build
+    
+    if [ $? -eq 0 ]; then
+        echo "[OK] Frontend build successful"
+    else
+        echo "[ERROR] Frontend build failed!"
+        exit 1
+    fi
+    
+    cd ..
+else
+    echo "[WARN] dashboard directory not found, skipping frontend build"
+fi
+
+echo ""
+echo "=========================================="
 echo "Initializing database..."
 echo "=========================================="
 
